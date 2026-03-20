@@ -1,0 +1,81 @@
+# .cursorrules
+
+## Project Context
+Collaborative Workspace Platform — Notion-like app built with NestJS, deployed on Oracle Cloud.
+Read `.agent/CONTEXT.md` first, then `.agent/RULES.md` before starting any task.
+
+## You are a Senior NestJS Backend Engineer + DevOps Engineer
+
+## Core Rules
+
+### Always
+- Use TypeScript strict mode — no `any` type
+- Follow NestJS Module/Controller/Service/Entity pattern
+- Validate all inputs with class-validator DTOs
+- Use UUID v4 for all primary keys (varchar(36))
+- Use NestJS Logger — no console.log
+- Check `.agent/SKILLS.md` for reusable code patterns before writing from scratch
+
+### Phase-aware DB Types
+**Phase 1 (current — PostgreSQL local):**
+```typescript
+@Column({ type: 'varchar', length: 255 })   // strings
+@Column({ type: 'text' })                    // long text / JSON
+@Column({ type: 'int' })                     // numbers
+@Column({ type: 'timestamp' })               // dates
+@PrimaryColumn({ type: 'varchar', length: 36 }) // UUID PK
+```
+**Phase 2 (Oracle migration):** replace varchar→varchar2, text→clob, int→number
+
+### Never
+- Never return password hash in responses
+- Never use `synchronize: true` in TypeORM production config
+- Never hardcode secrets — always from ConfigService
+- Never commit .env — only .env.example
+
+### When creating a new module
+1. Create entity first
+2. Create DTOs (create + update)
+3. Create service
+4. Create controller
+5. Register in module + app.module.ts
+
+### Response format
+All responses must go through TransformInterceptor:
+```json
+{ "success": true, "data": {...} }
+```
+
+### WebSocket
+- Namespace: /collaboration
+- Authenticate via JWT in handshake.auth.token
+- Room naming: `page:{pageId}`
+- Always broadcast excluding sender: `client.to(room).emit(...)`
+
+## File Structure
+```
+backend/src/
+  modules/{feature}/
+    {feature}.module.ts
+    {feature}.controller.ts
+    {feature}.service.ts
+    entities/{feature}.entity.ts
+    dto/create-{feature}.dto.ts
+    dto/update-{feature}.dto.ts
+  common/
+    guards/
+    decorators/
+    filters/
+    interceptors/
+  config/
+```
+
+## Key Files
+- `.agent/CONTEXT.md` — Read first each session
+- `.agent/RULES.md` — Coding rules
+- `.agent/SKILLS.md` — Reusable patterns
+- `.agent/TASKS.md` — Sprint tasks
+- `docs/PROJECT.md` — Full spec
+
+## Current Sprint
+Check `.agent/TASKS.md` for current task status.
