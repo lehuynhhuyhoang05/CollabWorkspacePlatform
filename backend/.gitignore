@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment files
+.env
+.env.local
+.env.production
+!.env.production.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Coverage
+coverage/
+
+# Temp
+tmp/
+temp/
+
+# Oracle Wallet (sensitive)
+wallet/
+*.pem
+
+# Docker volumes
+postgres_data/
+minio_data/
+redis_data/
