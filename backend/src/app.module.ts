@@ -17,6 +17,7 @@ import { CommentsModule } from './modules/comments/comments.module';
 import { CollaborationModule } from './modules/collaboration/collaboration.module';
 import { SearchModule } from './modules/search/search.module';
 import { StorageModule } from './modules/storage/storage.module';
+import { ShareModule } from './modules/share/share.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { StorageModule } from './modules/storage/storage.module';
     CollaborationModule,
     SearchModule,
     StorageModule,
+    ShareModule,
   ],
   providers: [
     // Apply rate limiting globally

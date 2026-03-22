@@ -73,6 +73,7 @@ async function bootstrap() {
       .addTag('Pages', 'Quản lý pages & version history')
       .addTag('Blocks', 'Quản lý blocks (Tiptap content)')
       .addTag('Comments', 'Comments trên blocks')
+      .addTag('Share', 'Chia sẻ trang bằng link token')
       .addTag('Search', 'Full-text search')
       .addTag('Storage', 'Upload & quản lý files')
       .addTag('Health', 'Health check')
