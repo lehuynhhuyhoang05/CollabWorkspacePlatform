@@ -11,6 +11,7 @@ import { PageVersion } from './entities/page-version.entity';
 import { Block } from '../blocks/entities/block.entity';
 import { CreatePageDto, UpdatePageDto, MovePageDto } from './dto/page.dto';
 import { WorkspacesService } from '../workspaces/workspaces.service';
+import { WorkspaceRole } from '../workspaces/entities/workspace-member.entity';
 
 export interface PageTreeNode {
   id: string;
@@ -43,7 +44,10 @@ export class PagesService {
     dto: CreatePageDto,
     userId: string,
   ): Promise<Page> {
-    await this.workspacesService.assertMember(workspaceId, userId);
+    await this.workspacesService.assertRole(workspaceId, userId, [
+      WorkspaceRole.OWNER,
+      WorkspaceRole.EDITOR,
+    ]);
 
     // Get next sort order
     const maxSort = await this.pagesRepository
@@ -111,8 +115,7 @@ export class PagesService {
   }
 
   async update(id: string, dto: UpdatePageDto, userId: string): Promise<Page> {
-    const page = await this.findOneRaw(id);
-    await this.workspacesService.assertMember(page.workspaceId, userId);
+    const page = await this.assertCanEditPage(id, userId);
 
     Object.assign(page, dto);
     return this.pagesRepository.save(page);
@@ -123,8 +126,7 @@ export class PagesService {
    * Allows recovery and keeps references intact.
    */
   async softDelete(id: string, userId: string): Promise<void> {
-    const page = await this.findOneRaw(id);
-    await this.workspacesService.assertMember(page.workspaceId, userId);
+    const page = await this.assertCanEditPage(id, userId);
 
     page.isDeleted = true;
     await this.pagesRepository.save(page);
@@ -140,8 +142,7 @@ export class PagesService {
     dto: MovePageDto,
     userId: string,
   ): Promise<Page> {
-    const page = await this.findOneRaw(id);
-    await this.workspacesService.assertMember(page.workspaceId, userId);
+    const page = await this.assertCanEditPage(id, userId);
 
     // Prevent moving page to its own descendant (circular reference)
     if (dto.parentId) {
@@ -221,8 +222,7 @@ export class PagesService {
     versionId: string,
     userId: string,
   ): Promise<void> {
-    const page = await this.findOneRaw(pageId);
-    await this.workspacesService.assertMember(page.workspaceId, userId);
+    await this.assertCanEditPage(pageId, userId);
 
     const version = await this.versionsRepository.findOne({
       where: { id: versionId, pageId },
@@ -279,6 +279,15 @@ export class PagesService {
     if (!page) {
       throw new NotFoundException('Page not found');
     }
+    return page;
+  }
+
+  async assertCanEditPage(pageId: string, userId: string): Promise<Page> {
+    const page = await this.findOneRaw(pageId);
+    await this.workspacesService.assertRole(page.workspaceId, userId, [
+      WorkspaceRole.OWNER,
+      WorkspaceRole.EDITOR,
+    ]);
     return page;
   }
 

@@ -23,8 +23,11 @@ export class CommentsController {
 
   @Get('blocks/:bid/comments')
   @ApiOperation({ summary: 'Danh sách comments của block' })
-  findAll(@Param('bid') blockId: string) {
-    return this.commentsService.findAllForBlock(blockId);
+  findAll(
+    @Param('bid') blockId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.commentsService.findAllForBlock(blockId, userId);
   }
 
   @Post('blocks/:bid/comments')

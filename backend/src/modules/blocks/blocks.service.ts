@@ -34,8 +34,8 @@ export class BlocksService {
     dto: CreateBlockDto,
     userId: string,
   ): Promise<Block> {
-    // Validate membership through page
-    const page = await this.pagesService.findOne(pageId, userId);
+    // Validate editor/owner permission through page
+    await this.pagesService.assertCanEditPage(pageId, userId);
 
     // Get next sort order if not specified
     let sortOrder = dto.sortOrder;
@@ -71,8 +71,8 @@ export class BlocksService {
   ): Promise<Block> {
     const block = await this.findOneRaw(blockId);
 
-    // Validate membership through page
-    await this.pagesService.findOne(block.pageId, userId);
+    // Validate editor/owner permission through page
+    await this.pagesService.assertCanEditPage(block.pageId, userId);
 
     if (dto.content !== undefined) {
       block.content = dto.content;
@@ -92,8 +92,8 @@ export class BlocksService {
   async remove(blockId: string, userId: string): Promise<void> {
     const block = await this.findOneRaw(blockId);
 
-    // Validate membership through page
-    await this.pagesService.findOne(block.pageId, userId);
+    // Validate editor/owner permission through page
+    await this.pagesService.assertCanEditPage(block.pageId, userId);
 
     await this.blocksRepository.delete(blockId);
 
@@ -112,7 +112,7 @@ export class BlocksService {
     dto: ReorderBlocksDto,
     userId: string,
   ): Promise<void> {
-    await this.pagesService.findOne(pageId, userId);
+    await this.pagesService.assertCanEditPage(pageId, userId);
 
     // Validate all blockIds belong to this page
     const blocks = await this.blocksRepository.find({
