@@ -12,6 +12,8 @@ export const envValidationSchema = Joi.object({
   JWT_EXPIRES_IN: Joi.string().default('15m'),
   JWT_REFRESH_SECRET: Joi.string().required(),
   JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
+  REFRESH_LIMIT: Joi.number().min(1).default(8),
+  REFRESH_TTL_MS: Joi.number().min(1000).default(60000),
 
   // Database
   DB_TYPE: Joi.string().valid('postgres', 'oracle').default('postgres'),
