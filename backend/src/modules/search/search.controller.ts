@@ -18,12 +18,23 @@ export class SearchController {
   @Get('workspaces/:wid/search')
   @ApiOperation({ summary: 'Full-text search trong workspace' })
   @ApiQuery({ name: 'q', description: 'Từ khoá tìm kiếm (tối thiểu 2 ký tự)' })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Số kết quả tối đa (1-50), mặc định 20',
+  })
   async search(
     @Param('wid') workspaceId: string,
     @Query('q') query: string,
+    @Query('limit') limit: string,
     @CurrentUser('id') userId: string,
   ) {
     await this.workspacesService.assertMember(workspaceId, userId);
-    return this.searchService.search(workspaceId, query);
+    const parsedLimit = Number(limit);
+    return this.searchService.search(
+      workspaceId,
+      query,
+      Number.isFinite(parsedLimit) ? parsedLimit : undefined,
+    );
   }
 }

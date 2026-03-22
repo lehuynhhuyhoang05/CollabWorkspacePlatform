@@ -30,63 +30,89 @@ export class SearchService {
   async search(
     workspaceId: string,
     query: string,
+    limit = 20,
   ): Promise<SearchResult[]> {
-    if (!query || query.trim().length < 2) {
+    const normalizedQuery = query?.trim().replace(/\s+/g, ' ') || '';
+    if (!normalizedQuery || normalizedQuery.length < 2) {
       return [];
     }
 
-    const searchTerm = `%${query.trim()}%`;
+    const cappedLimit = Math.min(Math.max(limit, 1), 50);
+    const queryForSearch = normalizedQuery.slice(0, 100);
+    const searchTerm = `%${queryForSearch}%`;
+    const titleTake = Math.min(10, cappedLimit);
+    const contentTake = Math.max(cappedLimit, 10);
+
     const results: SearchResult[] = [];
+    const titleMatchedPageIds = new Set<string>();
 
-    // Search page titles
-    const titleMatches = await this.pagesRepository
-      .createQueryBuilder('p')
-      .select(['p.id', 'p.title', 'p.icon'])
-      .where('p.workspace_id = :workspaceId', { workspaceId })
-      .andWhere('p.is_deleted = :isDeleted', { isDeleted: false })
-      .andWhere('LOWER(p.title) LIKE LOWER(:searchTerm)', { searchTerm })
-      .take(10)
-      .getMany();
+    const [titleMatches, contentMatches] = await Promise.all([
+      this.pagesRepository
+        .createQueryBuilder('p')
+        .select(['p.id', 'p.title', 'p.icon'])
+        .where('p.workspace_id = :workspaceId', { workspaceId })
+        .andWhere('p.is_deleted = :isDeleted', { isDeleted: false })
+        .andWhere('p.title ILIKE :searchTerm', { searchTerm })
+        .take(titleTake)
+        .getMany(),
 
+      this.blocksRepository
+        .createQueryBuilder('b')
+        .innerJoin('b.page', 'p')
+        .select('b.page_id', 'pageId')
+        .addSelect('b.content', 'content')
+        .addSelect('p.title', 'pageTitle')
+        .addSelect('p.icon', 'pageIcon')
+        .where('p.workspace_id = :workspaceId', { workspaceId })
+        .andWhere('p.is_deleted = :isDeleted', { isDeleted: false })
+        .andWhere('b.content IS NOT NULL')
+        .andWhere('b.content ILIKE :searchTerm', { searchTerm })
+        .take(contentTake)
+        .getRawMany<{
+          pageId: string;
+          content: string | null;
+          pageTitle: string | null;
+          pageIcon: string | null;
+        }>(),
+    ]);
+
+    // Add title hits first for stronger ranking.
     for (const page of titleMatches) {
+      titleMatchedPageIds.add(page.id);
       results.push({
         pageId: page.id,
         pageTitle: page.title,
         pageIcon: page.icon,
         matchType: 'title',
-        snippet: this.highlightMatch(page.title, query),
+        snippet: this.highlightMatch(page.title, queryForSearch),
       });
+
+      if (results.length >= cappedLimit) {
+        return results;
+      }
     }
 
-    // Search block content
-    const contentMatches = await this.blocksRepository
-      .createQueryBuilder('b')
-      .innerJoin('b.page', 'p')
-      .select(['b.content', 'b.pageId', 'p.id', 'p.title', 'p.icon'])
-      .where('p.workspace_id = :workspaceId', { workspaceId })
-      .andWhere('p.is_deleted = :isDeleted', { isDeleted: false })
-      .andWhere('b.content IS NOT NULL')
-      .andWhere('LOWER(b.content) LIKE LOWER(:searchTerm)', { searchTerm })
-      .take(10)
-      .getMany();
-
     for (const block of contentMatches) {
-      // Avoid duplicates if page already matched by title
-      if (results.some((r) => r.pageId === block.pageId && r.matchType === 'title')) {
+      // Avoid duplicate page entries when already matched by title.
+      if (titleMatchedPageIds.has(block.pageId)) {
         continue;
       }
 
       const textContent = this.extractPlainText(block.content);
       results.push({
         pageId: block.pageId,
-        pageTitle: block.page?.title || 'Untitled',
-        pageIcon: block.page?.icon || null,
+        pageTitle: block.pageTitle || 'Untitled',
+        pageIcon: block.pageIcon || null,
         matchType: 'content',
-        snippet: this.extractSnippet(textContent, query),
+        snippet: this.extractSnippet(textContent, queryForSearch),
       });
+
+      if (results.length >= cappedLimit) {
+        break;
+      }
     }
 
-    return results.slice(0, 20); // Cap at 20 results
+    return results;
   }
 
   // ──── Helpers ────
