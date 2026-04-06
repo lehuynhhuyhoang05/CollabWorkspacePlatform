@@ -1,13 +1,36 @@
 # Collaborative Workspace Platform
 
 ## Tổng quan
-Nền tảng ghi chú và cộng tác theo nhóm — giống Notion nhưng tự build và deploy trên Oracle Cloud.
+Nền tảng ghi chú và cộng tác theo nhóm — giống Notion nhưng tự build và deploy trên AWS.
 Đồ án môn Cloud Computing — báo cáo cuối tháng 4.
 
 ## Mục tiêu chính
 1. **App hoạt động được thật** — block editor, realtime collab, version history
-2. **CI/CD pipeline hoàn chỉnh** — push code → tự động deploy lên Oracle Cloud
-3. **Toàn bộ infra trên Oracle Always Free** — VM, DB, Object Storage
+2. **CI/CD pipeline hoàn chỉnh** — push code → tự động deploy lên AWS EC2
+3. **Toàn bộ infra cloud chạy ổn định trong budget Free Tier/Credit**
+
+---
+
+## Trạng thái triển khai hiện tại (codebase)
+
+### Đã triển khai
+- Auth, Users, Workspaces, Pages, Blocks, Comments, Search, Storage, Collaboration, Health
+- Share module tối thiểu (`POST /pages/:id/share`, `GET /share/:token`)
+- CI/CD skeleton tại `.github/workflows/deploy.yml`
+- REST API prefix: `/api/v1` (riêng health là `/health`)
+- Realtime Socket.io namespace: `/collaboration`
+- Local infra: PostgreSQL + MinIO + Redis (`docker-compose.local.yml`)
+
+### Chưa triển khai (planned)
+- AWS production hardening (monitoring/backup/cost guard)
+
+AWS-first runbook: `docs/PRODUCTION_RUNBOOK.md`
+AWS pre-demo checklist: `docs/DEMO_TMINUS_30_CHECKLIST.md`
+Legacy Oracle migration checklist (tham khảo): `docs/ORACLE_MIGRATION_CHECKLIST.md`
+VM production env template: `backend/.env.vm.example`
+HTTPS automation scripts: `backend/scripts/enable-https.sh`, `backend/scripts/renew-ssl.sh`
+Frontend API contract: `docs/FRONTEND_API_CONTRACT.md`
+Postman collection: `docs/postman/CollaborativeWorkspace.postman_collection.json`
 
 ---
 
@@ -18,26 +41,26 @@ Nền tảng ghi chú và cộng tác theo nhóm — giống Notion nhưng tự 
 |---|---|---|
 | Framework | NestJS + TypeScript | Main backend framework |
 | Realtime | Socket.io (@nestjs/websockets) | WebSocket cho collab |
-| ORM | TypeORM | Kết nối Oracle DB |
+| ORM | TypeORM | PostgreSQL (AWS-first), có thể mở rộng Oracle sau |
 | Auth | JWT (@nestjs/jwt + passport) | Access + Refresh token |
-| Cache / Pub-Sub | Redis (ioredis) | Sync WebSocket, session |
-| File upload | Oracle Object Storage SDK | Ảnh, cover image |
-| Search | Oracle Text (full-text) | Built-in trong Oracle DB |
+| Cache / Realtime infra | Redis (container) | nền tảng cache/pubsub cho phase tiếp theo |
+| File upload | MinIO adapter (S3-compatible) | Ảnh, cover image |
+| Search | PostgreSQL ILIKE + index tuning | Full-text nâng cao ở phase sau |
 | Validation | class-validator + class-transformer | DTO validation |
 | Config | @nestjs/config | Env management |
 
 ### Database
-- **Oracle Autonomous Database (Always Free)** — PostgreSQL-compatible mode
-- ORM: TypeORM với Oracle dialect
-- Connection: Oracle Thin JDBC / node-oracledb
+- **PostgreSQL** chạy trong Docker stack trên AWS EC2 (AWS-first)
+- ORM: TypeORM
+- Có khả năng chuyển sang RDS/Oracle ở phase mở rộng
 
-### Infrastructure (Oracle Always Free)
+### Infrastructure (AWS-first)
 | Service | Specs | Dùng cho |
 |---|---|---|
-| Compute VM (ARM) | 4 OCPU / 24GB RAM | Chạy Docker containers |
-| Autonomous Database | 1 OCPU / 20GB | PostgreSQL-compatible |
-| Object Storage | 20GB | File, ảnh upload |
-| Virtual Cloud Network | - | Network isolation |
+| EC2 (Ubuntu) | Free Tier eligible | Chạy Docker containers |
+| EBS | 20GB+ | Persistent volumes |
+| Security Group | 22/80/443 | SSH + HTTP + HTTPS |
+| Optional Route53 | Domain management | Trỏ domain cho demo |
 
 ### DevOps
 | Thành phần | Công nghệ |
@@ -45,7 +68,7 @@ Nền tảng ghi chú và cộng tác theo nhóm — giống Notion nhưng tự 
 | Container | Docker + Docker Compose |
 | CI/CD | GitHub Actions |
 | Reverse Proxy | Nginx + Let's Encrypt (SSL) |
-| Registry | GitHub Container Registry (ghcr.io) |
+| Deployment target | AWS EC2 (SSH deploy) |
 
 ### Frontend (do bạn teammate làm)
 - Next.js + TypeScript
@@ -64,8 +87,7 @@ backend/
 │   ├── app.module.ts
 │   ├── config/
 │   │   ├── database.config.ts
-│   │   ├── redis.config.ts
-│   │   └── oracle-storage.config.ts
+│   │   └── env.validation.ts
 │   ├── modules/
 │   │   ├── auth/
 │   │   │   ├── auth.module.ts
@@ -107,8 +129,7 @@ backend/
 │   │   ├── collaboration/
 │   │   │   ├── collaboration.module.ts
 │   │   │   ├── collaboration.gateway.ts   ← WebSocket Gateway
-│   │   │   ├── collaboration.service.ts
-│   │   │   └── dto/
+│   │   │   └── ...
 │   │   ├── comments/
 │   │   │   ├── comments.module.ts
 │   │   │   ├── comments.service.ts
@@ -120,7 +141,9 @@ backend/
 │   │   │   └── search.controller.ts
 │   │   └── storage/
 │   │       ├── storage.module.ts
-│   │       └── storage.service.ts         ← Oracle Object Storage
+│   │       ├── storage.controller.ts
+│   │       ├── minio-storage.service.ts
+│   │       └── storage.interface.ts
 │   └── common/
 │       ├── guards/
 │       │   ├── jwt-auth.guard.ts
@@ -317,6 +340,8 @@ POST   /pages/:id/share               -- tạo share link / assign user
 GET    /share/:token                  -- public access bằng token
 ```
 
+> Status: đã triển khai bản tối thiểu trong code hiện tại.
+
 ---
 
 ## WebSocket Events (Socket.io)
@@ -341,12 +366,46 @@ block-created   { block, userId }             -- broadcast block mới
 block-deleted   { blockId, userId }           -- broadcast xoá
 block-reordered { blockIds[], userId }        -- broadcast reorder
 cursor-moved    { userId, position }          -- broadcast cursor
-page-saved      { versionId, savedAt }        -- auto-save confirm
 ```
+
+> `page-saved` hiện chưa emit trong gateway.
 
 ---
 
 ## Môi trường & Biến môi trường
+
+### Local development (phase 1)
+
+```env
+NODE_ENV=development
+PORT=3000
+
+DB_TYPE=postgres
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=collab_user
+DB_PASSWORD=collab_pass
+DB_NAME=collab_workspace
+DB_SYNCHRONIZE=false
+DB_LOGGING=false
+
+STORAGE_TYPE=minio
+MINIO_ENDPOINT=localhost
+MINIO_PORT=9000
+MINIO_USE_SSL=false
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin123
+MINIO_BUCKET_NAME=collab-workspace
+
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+JWT_SECRET=your_secret_here
+JWT_REFRESH_SECRET=your_refresh_secret
+FRONTEND_URL=http://localhost:3001
+```
+
+### Production Oracle (phase 2)
 
 ```env
 # App
