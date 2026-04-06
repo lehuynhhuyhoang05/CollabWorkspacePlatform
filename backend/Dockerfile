@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Copy package files first (cache layer)
 COPY package*.json ./
-RUN npm ci --only=production && cp -R node_modules prod_modules
+RUN npm ci --omit=dev && cp -R node_modules /tmp/prod_modules
 RUN npm ci
 
 # Copy source and build
@@ -22,7 +22,7 @@ RUN addgroup -g 1001 -S nestjs && \
     adduser -S nestjs -u 1001
 
 # Copy production deps + built output
-COPY --from=builder /app/prod_modules ./node_modules
+COPY --from=builder /tmp/prod_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package.json ./
 
