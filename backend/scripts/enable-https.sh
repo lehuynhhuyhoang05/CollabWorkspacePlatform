@@ -12,8 +12,8 @@ fi
 echo "[ssl] Bootstrapping HTTP config for ACME challenge"
 cp nginx/http.conf nginx/active.conf
 
-echo "[ssl] Starting nginx/backend stack"
-docker compose -f docker-compose.prod.yml up -d backend redis nginx
+echo "[ssl] Starting full stack"
+docker compose -f docker-compose.prod.yml up -d
 
 echo "[ssl] Requesting certificate for $DOMAIN"
 docker compose -f docker-compose.prod.yml run --rm certbot certonly \

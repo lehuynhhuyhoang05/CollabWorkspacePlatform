@@ -45,22 +45,22 @@ jobs:
       - name: Copy project to VM
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.ORACLE_VM_IP }}
-          username: ${{ secrets.ORACLE_VM_USER }}
-          key: ${{ secrets.ORACLE_SSH_PRIVATE_KEY }}
+          host: ${{ secrets.AWS_EC2_HOST || secrets.ORACLE_VM_IP }}
+          username: ${{ secrets.AWS_EC2_USER || secrets.ORACLE_VM_USER }}
+          key: ${{ secrets.AWS_EC2_SSH_PRIVATE_KEY || secrets.ORACLE_SSH_PRIVATE_KEY }}
           source: 'backend/**'
-          target: '${{ secrets.DEPLOY_PATH }}'
+          target: '${{ secrets.AWS_DEPLOY_PATH || secrets.DEPLOY_PATH }}'
           strip_components: 0
 
       - name: Deploy with Docker Compose
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.ORACLE_VM_IP }}
-          username: ${{ secrets.ORACLE_VM_USER }}
-          key: ${{ secrets.ORACLE_SSH_PRIVATE_KEY }}
+          host: ${{ secrets.AWS_EC2_HOST || secrets.ORACLE_VM_IP }}
+          username: ${{ secrets.AWS_EC2_USER || secrets.ORACLE_VM_USER }}
+          key: ${{ secrets.AWS_EC2_SSH_PRIVATE_KEY || secrets.ORACLE_SSH_PRIVATE_KEY }}
           script: |
             set -e
-            cd ${{ secrets.DEPLOY_PATH }}/backend
+            cd ${{ secrets.AWS_DEPLOY_PATH || secrets.DEPLOY_PATH }}/backend
             if [ ! -f .env ]; then
               echo '.env not found on server. Create backend/.env before first deploy.'
               exit 1
@@ -78,6 +78,7 @@ jobs:
             docker image prune -f
 
 # Required repository secrets:
-# ORACLE_VM_IP, ORACLE_VM_USER, ORACLE_SSH_PRIVATE_KEY, DEPLOY_PATH
+# AWS_EC2_HOST, AWS_EC2_USER, AWS_EC2_SSH_PRIVATE_KEY, AWS_DEPLOY_PATH
+# (Backward compatible fallback: ORACLE_VM_IP, ORACLE_VM_USER, ORACLE_SSH_PRIVATE_KEY, DEPLOY_PATH)
 # Optional for HTTPS automation:
 # DOMAIN, CERTBOT_EMAIL

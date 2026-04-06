@@ -1,6 +1,44 @@
-version: '3.9'
-
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: collab-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: collab_user
+      POSTGRES_PASSWORD: collab_pass
+      POSTGRES_DB: collab_workspace
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U collab_user -d collab_workspace']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: collab-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    command: server /data --console-address ':9001'
+    volumes:
+      - minio_data:/data
+
+  minio-setup:
+    image: minio/mc:latest
+    container_name: collab-minio-setup
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin123;
+      mc mb --ignore-existing local/collab-workspace;
+      mc anonymous set download local/collab-workspace;
+      echo 'MinIO bucket ready';
+      "
+
   backend:
     build:
       context: .
@@ -10,6 +48,9 @@ services:
     env_file:
       - .env
     depends_on:
+      - postgres
+      - minio
+      - minio-setup
       - redis
     healthcheck:
       test: ['CMD', 'wget', '-q', '--spider', 'http://localhost:3000/health']
@@ -47,6 +88,8 @@ services:
       - redis_data:/data
 
 volumes:
+  postgres_data:
+  minio_data:
   redis_data:
   certbot_www:
   certbot_certs:
