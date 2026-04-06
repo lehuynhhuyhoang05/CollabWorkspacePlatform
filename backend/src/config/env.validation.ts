@@ -25,10 +25,22 @@ export const envValidationSchema = Joi.object({
   DB_SYNCHRONIZE: Joi.string().valid('true', 'false').default('false'),
   DB_LOGGING: Joi.string().valid('true', 'false').default('false'),
 
-  // Oracle (required only if DB_TYPE=oracle)
-  ORACLE_USER: Joi.string().optional(),
-  ORACLE_PASSWORD: Joi.string().optional(),
-  ORACLE_CONNECTION_STRING: Joi.string().optional(),
+  // Oracle (required only if DB_TYPE=oracle; allow empty values for postgres mode)
+  ORACLE_USER: Joi.string().when('DB_TYPE', {
+    is: 'oracle',
+    then: Joi.required(),
+    otherwise: Joi.allow('').optional(),
+  }),
+  ORACLE_PASSWORD: Joi.string().when('DB_TYPE', {
+    is: 'oracle',
+    then: Joi.required(),
+    otherwise: Joi.allow('').optional(),
+  }),
+  ORACLE_CONNECTION_STRING: Joi.string().when('DB_TYPE', {
+    is: 'oracle',
+    then: Joi.required(),
+    otherwise: Joi.allow('').optional(),
+  }),
 
   // Redis
   REDIS_HOST: Joi.string().default('localhost'),
