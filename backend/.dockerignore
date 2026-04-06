@@ -1,0 +1,12 @@
+node_modules
+dist
+npm-debug.log
+.env
+.env.local
+.env.production
+.git
+.gitignore
+coverage
+*.md
+tsc-errors.txt
+tsc-errors2.txt

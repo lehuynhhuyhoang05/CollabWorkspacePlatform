@@ -1,0 +1,84 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+  deploy:
+    name: Deploy To VM
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Copy project to VM
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.AWS_EC2_HOST || secrets.ORACLE_VM_IP }}
+          username: ${{ secrets.AWS_EC2_USER || secrets.ORACLE_VM_USER }}
+          key: ${{ secrets.AWS_EC2_SSH_PRIVATE_KEY || secrets.ORACLE_SSH_PRIVATE_KEY }}
+          source: 'backend/**'
+          target: '${{ secrets.AWS_DEPLOY_PATH || secrets.DEPLOY_PATH }}'
+          strip_components: 0
+
+      - name: Deploy with Docker Compose
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.AWS_EC2_HOST || secrets.ORACLE_VM_IP }}
+          username: ${{ secrets.AWS_EC2_USER || secrets.ORACLE_VM_USER }}
+          key: ${{ secrets.AWS_EC2_SSH_PRIVATE_KEY || secrets.ORACLE_SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            cd ${{ secrets.AWS_DEPLOY_PATH || secrets.DEPLOY_PATH }}/backend
+            if [ ! -f .env ]; then
+              echo '.env not found on server. Create backend/.env before first deploy.'
+              exit 1
+            fi
+            docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+
+            # Optional HTTPS bootstrap (runs only when both secrets are set)
+            if [ -n "${{ secrets.DOMAIN }}" ] && [ -n "${{ secrets.CERTBOT_EMAIL }}" ]; then
+              export DOMAIN="${{ secrets.DOMAIN }}"
+              export CERTBOT_EMAIL="${{ secrets.CERTBOT_EMAIL }}"
+              sh scripts/enable-https.sh
+              sh scripts/renew-ssl.sh || true
+            fi
+
+            docker image prune -f
+
+# Required repository secrets:
+# AWS_EC2_HOST, AWS_EC2_USER, AWS_EC2_SSH_PRIVATE_KEY, AWS_DEPLOY_PATH
+# (Backward compatible fallback: ORACLE_VM_IP, ORACLE_VM_USER, ORACLE_SSH_PRIVATE_KEY, DEPLOY_PATH)
+# Optional for HTTPS automation:
+# DOMAIN, CERTBOT_EMAIL
