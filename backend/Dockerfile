@@ -10,7 +10,7 @@ RUN npm ci
 
 # Copy source and build
 COPY . .
-RUN npm run build
+RUN NODE_OPTIONS=--max-old-space-size=1024 npm run build
 
 # ──── Stage 2: Production ────
 FROM node:20-alpine AS production
