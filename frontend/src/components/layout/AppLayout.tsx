@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { authApi } from "../../api/auth.api";
+import { notificationsApi } from "../../api/notifications.api";
 import { useLocale } from "../../lib/locale";
 import { useAuthStore } from "../../store/auth.store";
 import { useToastStore } from "../../store/toast.store";
@@ -21,6 +22,15 @@ export function AppLayout() {
     enabled: Boolean(accessToken),
     staleTime: 60_000,
   });
+
+  const unreadNotificationsQuery = useQuery({
+    queryKey: ["notifications", "unread"],
+    queryFn: () => notificationsApi.listInbox(true),
+    enabled: Boolean(accessToken),
+    staleTime: 15_000,
+  });
+
+  const unreadCount = unreadNotificationsQuery.data?.length ?? 0;
 
   useEffect(() => {
     if (meQuery.data) {
@@ -57,6 +67,13 @@ export function AppLayout() {
           <nav className="topbar-nav">
             <NavLink to="/workspaces" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
               {t("Không gian", "Workspaces")}
+            </NavLink>
+            <NavLink to="/tasks/my" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
+              {t("Việc của tôi", "My Tasks")}
+            </NavLink>
+            <NavLink to="/inbox" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
+              {t("Inbox", "Inbox")}
+              {unreadCount > 0 ? <span className="nav-badge">{unreadCount}</span> : null}
             </NavLink>
             <NavLink to="/profile" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
               {t("Hồ sơ", "Profile")}

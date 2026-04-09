@@ -1,6 +1,6 @@
 import { http } from "./http";
 import { unwrap, withApiError } from "./utils";
-import type { ApiEnvelope, Page, PageTreeNode } from "../types/api";
+import type { ApiEnvelope, Page, PageTreeNode, PageVersion } from "../types/api";
 
 interface CreatePageInput {
   title?: string;
@@ -59,10 +59,10 @@ export const pagesApi = {
     );
   },
 
-  async getVersions(pageId: string): Promise<Array<{ id: string; createdAt: string; createdBy: string }>> {
+  async getVersions(pageId: string): Promise<PageVersion[]> {
     return withApiError(
       http
-        .get<ApiEnvelope<Array<{ id: string; createdAt: string; createdBy: string }>>>(
+        .get<ApiEnvelope<PageVersion[]>>(
           `/pages/${pageId}/versions`,
         )
         .then((res) => unwrap(res.data)),

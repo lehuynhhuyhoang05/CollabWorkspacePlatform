@@ -27,6 +27,22 @@ export const commentsApi = {
     );
   },
 
+  async resolve(commentId: string): Promise<Comment> {
+    return withApiError(
+      http
+        .patch<ApiEnvelope<Comment>>(`/comments/${commentId}/resolve`)
+        .then((res) => unwrap(res.data)),
+    );
+  },
+
+  async reopen(commentId: string): Promise<Comment> {
+    return withApiError(
+      http
+        .patch<ApiEnvelope<Comment>>(`/comments/${commentId}/reopen`)
+        .then((res) => unwrap(res.data)),
+    );
+  },
+
   async remove(commentId: string): Promise<void> {
     return withApiError(
       http

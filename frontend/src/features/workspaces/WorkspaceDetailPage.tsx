@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { notificationsApi } from "../../api/notifications.api";
 import { pagesApi } from "../../api/pages.api";
 import { searchApi } from "../../api/search.api";
 import { workspacesApi } from "../../api/workspaces.api";
@@ -67,6 +68,13 @@ export function WorkspaceDetailPage() {
     queryKey: ["workspace", workspaceId, "members"],
     queryFn: () => workspacesApi.listMembers(workspaceId),
     enabled: Boolean(workspaceId),
+  });
+
+  const activitiesQuery = useQuery({
+    queryKey: ["workspace", workspaceId, "activities"],
+    queryFn: () => notificationsApi.listWorkspaceActivities(workspaceId, 30),
+    enabled: Boolean(workspaceId),
+    staleTime: 15_000,
   });
 
   const createPageMutation = useMutation({
@@ -137,6 +145,7 @@ export function WorkspaceDetailPage() {
       workspaceQuery.error ||
       treeQuery.error ||
       membersQuery.error ||
+      activitiesQuery.error ||
       createPageMutation.error ||
       inviteMutation.error ||
       searchMutation.error ||
@@ -146,6 +155,7 @@ export function WorkspaceDetailPage() {
       workspaceQuery.error,
       treeQuery.error,
       membersQuery.error,
+      activitiesQuery.error,
       createPageMutation.error,
       inviteMutation.error,
       searchMutation.error,
@@ -165,9 +175,14 @@ export function WorkspaceDetailPage() {
           <p className="chip">{t("Không gian", "Workspace")}</p>
           <h1>{workspaceQuery.data?.name}</h1>
         </div>
-        <Link to="/workspaces" className="link-button">
-          {t("Quay lại danh sách workspace", "Back to Workspaces")}
-        </Link>
+        <div className="inline-actions">
+          <Link to={`/workspaces/${workspaceId}/tasks`} className="link-button">
+            {t("Mở Tasks", "Open Tasks")}
+          </Link>
+          <Link to="/workspaces" className="link-button">
+            {t("Quay lại danh sách workspace", "Back to Workspaces")}
+          </Link>
+        </div>
       </div>
 
       {topError ? <ErrorBanner message={getErrorMessage(topError)} /> : null}
@@ -376,6 +391,47 @@ export function WorkspaceDetailPage() {
             ))}
           </tbody>
         </table>
+      </Card>
+
+      <Card>
+        <div className="inline-actions">
+          <h2 className="card-title">{t("Activity Feed", "Activity Feed")}</h2>
+          <Button
+            size="sm"
+            variant="ghost"
+            loading={activitiesQuery.isFetching}
+            onClick={async () => {
+              await activitiesQuery.refetch();
+            }}
+          >
+            {t("Làm mới", "Refresh")}
+          </Button>
+        </div>
+
+        {activitiesQuery.isPending ? (
+          <p className="muted-text">{t("Đang tải activity...", "Loading activity...")}</p>
+        ) : null}
+
+        {!activitiesQuery.isPending && (activitiesQuery.data ?? []).length === 0 ? (
+          <p className="muted-text">{t("Chưa có hoạt động nào gần đây.", "No recent activity yet.")}</p>
+        ) : null}
+
+        {(activitiesQuery.data ?? []).length > 0 ? (
+          <ul className="workspace-activity-list">
+            {(activitiesQuery.data ?? []).map((activity) => (
+              <li key={activity.id}>
+                <div>
+                  <p>
+                    <strong>{activity.actor?.name || activity.actorUserId}</strong>
+                    {": "}
+                    {activity.message}
+                  </p>
+                  <p className="muted-text comment-meta">{new Date(activity.createdAt).toLocaleString()}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </Card>
     </div>
   );

@@ -18,13 +18,16 @@ import { CollaborationModule } from './modules/collaboration/collaboration.modul
 import { SearchModule } from './modules/search/search.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { ShareModule } from './modules/share/share.module';
+import { TasksModule } from './modules/tasks/tasks.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { GoogleIntegrationsModule } from './modules/google-integrations/google-integrations.module';
 
 @Module({
   imports: [
     // Global config — validates env vars on startup
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      envFilePath: ['.env.local', '.env'],
       validationSchema: envValidationSchema,
       validationOptions: {
         abortEarly: true, // Fail fast on first missing var
@@ -58,6 +61,9 @@ import { ShareModule } from './modules/share/share.module';
     SearchModule,
     StorageModule,
     ShareModule,
+    TasksModule,
+    NotificationsModule,
+    GoogleIntegrationsModule,
   ],
   providers: [
     // Apply rate limiting globally

@@ -62,6 +62,7 @@ Project/
 │   ├── RULES.md
 │   ├── SKILLS.md
 │   ├── SKILL_STORAGE.md
+│   ├── PROGRESS.md
 │   └── TASKS.md
 ├── docs/                 ← Project documentation
 │   ├── PROJECT.md
@@ -82,6 +83,7 @@ Project/
 | `.agent/RULES.md` | Nguyên tắc code bắt buộc phải theo |
 | `.agent/SKILLS.md` | Code patterns sẵn có (9 skills) |
 | `.agent/SKILL_STORAGE.md` | Storage abstraction MinIO/OCI |
+| `.agent/PROGRESS.md` | Snapshot tiến độ ngắn, đọc sau CONTEXT để làm tiếp ngay |
 | `.agent/TASKS.md` | Danh sách task theo sprint |
 | `backend/docker-compose.local.yml` | Docker local (PostgreSQL + MinIO + Redis) |
 | `backend/.env.local` | Env vars cho local dev |
@@ -115,8 +117,8 @@ Dùng abstraction layer — xem `.agent/SKILL_STORAGE.md`
 ## Trạng thái hiện tại
 > Cập nhật dòng này sau mỗi task hoàn thành
 
-- [/] Sprint 1: **Đang tiến hành** — Project init
-- [ ] Sprint 2: Chưa bắt đầu
-- [ ] Sprint 3: Chưa bắt đầu
-- [ ] Sprint 4: Chưa bắt đầu
+- [x] Sprint 1: Hoàn thành nền tảng backend local
+- [x] Sprint 2: Hoàn thành phần lớn core features (workspace/page/block/comment/search/storage)
+- [/] Sprint 3: Đã có realtime gateway, còn thiếu test và hardening
+- [/] Sprint 4: Đã có version history + search + upload local; còn share + tối ưu
 - [ ] Sprint 5: Chưa bắt đầu

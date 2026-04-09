@@ -12,11 +12,13 @@ describe('SearchService', () => {
   beforeEach(() => {
     const makeQb = (rows: any[]) => ({
       select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
       innerJoin: jest.fn().mockReturnThis(),
       getMany: jest.fn().mockResolvedValue(rows),
+      getRawMany: jest.fn().mockResolvedValue(rows),
     });
 
     pagesRepository = {
@@ -53,19 +55,22 @@ describe('SearchService', () => {
     const contentQb = {
       innerJoin: jest.fn().mockReturnThis(),
       select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue([
+      getRawMany: jest.fn().mockResolvedValue([
         {
           pageId: 'p1',
           content: '{"type":"text","text":"hello from p1"}',
-          page: { title: 'Hello page', icon: null },
+          pageTitle: 'Hello page',
+          pageIcon: null,
         },
         {
           pageId: 'p2',
           content: '{"type":"text","text":"hello from p2"}',
-          page: { title: 'Second page', icon: null },
+          pageTitle: 'Second page',
+          pageIcon: null,
         },
       ]),
     };
@@ -94,10 +99,11 @@ describe('SearchService', () => {
     const contentQb = {
       innerJoin: jest.fn().mockReturnThis(),
       select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue([]),
+      getRawMany: jest.fn().mockResolvedValue([]),
     };
 
     pagesRepository.createQueryBuilder.mockReturnValueOnce(titleQb);

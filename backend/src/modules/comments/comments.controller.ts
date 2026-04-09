@@ -50,6 +50,24 @@ export class CommentsController {
     return this.commentsService.update(id, dto, userId);
   }
 
+  @Patch('comments/:id/resolve')
+  @ApiOperation({ summary: 'Đánh dấu comment đã xử lý' })
+  resolve(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.commentsService.resolve(id, userId);
+  }
+
+  @Patch('comments/:id/reopen')
+  @ApiOperation({ summary: 'Mở lại comment' })
+  reopen(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.commentsService.reopen(id, userId);
+  }
+
   @Delete('comments/:id')
   @ApiOperation({ summary: 'Xoá comment (chỉ tác giả)' })
   remove(

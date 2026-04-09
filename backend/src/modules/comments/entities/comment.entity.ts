@@ -26,6 +26,21 @@ export class Comment {
   @Column({ type: 'text' })
   content: string;
 
+  @Column({ type: 'boolean', name: 'is_resolved', default: false })
+  isResolved: boolean;
+
+  @Column({ type: 'varchar', length: 36, name: 'resolved_by_user_id', nullable: true })
+  resolvedByUserId: string | null;
+
+  @Column({ type: 'timestamp', name: 'resolved_at', nullable: true })
+  resolvedAt: Date | null;
+
+  @Column({ type: 'varchar', length: 36, name: 'reopened_by_user_id', nullable: true })
+  reopenedByUserId: string | null;
+
+  @Column({ type: 'timestamp', name: 'reopened_at', nullable: true })
+  reopenedAt: Date | null;
+
   @ManyToOne(() => Block, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'block_id' })
   block: Block;
@@ -33,6 +48,14 @@ export class Comment {
   @ManyToOne(() => User)
   @JoinColumn({ name: 'user_id' })
   user: User;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'resolved_by_user_id' })
+  resolvedByUser?: User | null;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'reopened_by_user_id' })
+  reopenedByUser?: User | null;
 
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;

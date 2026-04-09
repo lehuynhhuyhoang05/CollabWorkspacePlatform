@@ -30,6 +30,7 @@ import { PageVersion } from '../src/modules/pages/entities/page-version.entity';
 import { CommentsController } from '../src/modules/comments/comments.controller';
 import { CommentsService } from '../src/modules/comments/comments.service';
 import { Comment } from '../src/modules/comments/entities/comment.entity';
+import { NotificationsService } from '../src/modules/notifications/notifications.service';
 
 import { Block } from '../src/modules/blocks/entities/block.entity';
 
@@ -83,9 +84,18 @@ describe('RBAC Path (integration/e2e)', () => {
       createQueryBuilder: jest.fn(() => ({
         innerJoin: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
-        getRawOne: jest.fn().mockResolvedValue({ workspaceId: 'w1' }),
+        getRawOne: jest.fn().mockResolvedValue({
+          workspaceId: 'w1',
+          pageId: 'p1',
+        }),
       })),
+    };
+
+    const notificationsServiceMock = {
+      createMentionNotifications: jest.fn(),
+      recordWorkspaceActivity: jest.fn(),
     };
 
     const commentsRepositoryMock = {
@@ -117,6 +127,10 @@ describe('RBAC Path (integration/e2e)', () => {
           provide: getRepositoryToken(Comment),
           useValue: commentsRepositoryMock,
         },
+        {
+          provide: NotificationsService,
+          useValue: notificationsServiceMock,
+        },
       ],
     }).compile();
 
@@ -125,7 +139,9 @@ describe('RBAC Path (integration/e2e)', () => {
   });
 
   afterEach(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   it('POST /workspaces/:wid/pages should return 403 for viewer on mutate', async () => {

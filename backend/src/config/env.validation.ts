@@ -57,4 +57,14 @@ export const envValidationSchema = Joi.object({
 
   // CORS
   FRONTEND_URL: Joi.string().default('http://localhost:3001'),
+
+  // Google Integrations (optional)
+  GOOGLE_CLIENT_ID: Joi.string().allow('').optional(),
+  GOOGLE_CLIENT_SECRET: Joi.string().allow('').optional(),
+  GOOGLE_REDIRECT_URI: Joi.string().allow('').optional(),
+  GOOGLE_SCOPES: Joi.string().default(
+    'openid email profile https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar',
+  ),
+  GOOGLE_SYNC_MAX_ATTEMPTS: Joi.number().min(1).max(20).default(5),
+  GOOGLE_SYNC_RETRY_BASE_MS: Joi.number().min(1000).default(300000),
 });
