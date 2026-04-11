@@ -62,6 +62,7 @@ Docs:
 - Workflow: `.github/workflows/deploy.yml`
 - Runtime compose: `docker-compose.prod.yml` (backend + postgres + redis + minio + nginx)
 - VM env template: `.env.vm.example`
+- Preferred GitHub secrets naming now uses `PROD_*` variables (legacy secret names still supported during migration).
 - Required GitHub repository secrets:
   - `AWS_EC2_HOST`
   - `AWS_EC2_USER`
