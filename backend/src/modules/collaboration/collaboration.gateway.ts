@@ -7,11 +7,13 @@ import {
   ConnectedSocket,
   MessageBody,
 } from '@nestjs/websockets';
-import { Logger } from '@nestjs/common';
+import { Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 import { ConfigService } from '@nestjs/config';
+import { Subscription } from 'rxjs';
 import { BlocksService } from '../blocks/blocks.service';
+import { CollaborationEventsService } from './collaboration-events.service';
 
 interface ConnectedUser {
   userId: string;
@@ -49,7 +51,11 @@ const CURSOR_COLORS = [
   },
 })
 export class CollaborationGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
+  implements
+    OnGatewayConnection,
+    OnGatewayDisconnect,
+    OnModuleInit,
+    OnModuleDestroy
 {
   @WebSocketServer()
   server: Server;
@@ -58,12 +64,29 @@ export class CollaborationGateway
 
   // Track connected users per room for presence
   private readonly roomUsers = new Map<string, Map<string, ConnectedUser>>();
+  private blockEventsSubscription?: Subscription;
 
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly blocksService: BlocksService,
+    private readonly collaborationEventsService: CollaborationEventsService,
   ) {}
+
+  onModuleInit() {
+    this.blockEventsSubscription =
+      this.collaborationEventsService.blockEvents$.subscribe((event) => {
+        if (!this.server) {
+          return;
+        }
+
+        this.server.to(`page:${event.pageId}`).emit(event.type, event.payload);
+      });
+  }
+
+  onModuleDestroy() {
+    this.blockEventsSubscription?.unsubscribe();
+  }
 
   // ──── Connection lifecycle ────
 
@@ -191,13 +214,6 @@ export class CollaborationGateway
         { content: data.content, type: data.type },
         socketData.userId,
       );
-
-      client.to(`page:${data.pageId}`).emit('block-updated', {
-        blockId: data.blockId,
-        content: data.content,
-        type: data.type,
-        userId: socketData.userId,
-      });
     } catch (error) {
       client.emit('error', {
         message: 'Failed to update block',
@@ -230,11 +246,6 @@ export class CollaborationGateway
         socketData.userId,
       );
 
-      client.to(`page:${data.pageId}`).emit('block-created', {
-        block,
-        userId: socketData.userId,
-      });
-
       // Confirm to sender with the created block (includes generated ID)
       client.emit('block-created-ack', { block });
     } catch (error) {
@@ -258,11 +269,6 @@ export class CollaborationGateway
       }
 
       await this.blocksService.remove(data.blockId, socketData.userId);
-
-      client.to(`page:${data.pageId}`).emit('block-deleted', {
-        blockId: data.blockId,
-        userId: socketData.userId,
-      });
     } catch (error) {
       client.emit('error', {
         message: 'Failed to delete block',
@@ -288,11 +294,6 @@ export class CollaborationGateway
         { blockIds: data.blockIds },
         socketData.userId,
       );
-
-      client.to(`page:${data.pageId}`).emit('block-reordered', {
-        blockIds: data.blockIds,
-        userId: socketData.userId,
-      });
     } catch (error) {
       client.emit('error', {
         message: 'Failed to reorder blocks',

@@ -8,6 +8,7 @@ import {
   ReorderBlocksDto,
 } from './dto/block.dto';
 import { PagesService } from '../pages/pages.service';
+import { CollaborationEventsService } from '../collaboration/collaboration-events.service';
 
 @Injectable()
 export class BlocksService {
@@ -17,6 +18,7 @@ export class BlocksService {
     @InjectRepository(Block)
     private readonly blocksRepository: Repository<Block>,
     private readonly pagesService: PagesService,
+    private readonly collaborationEventsService: CollaborationEventsService,
   ) {}
 
   async findAllForPage(pageId: string, userId: string): Promise<Block[]> {
@@ -63,6 +65,15 @@ export class BlocksService {
     // Auto-save version (debounced in a real production app)
     await this.pagesService.createVersion(pageId, userId);
 
+    this.collaborationEventsService.emitBlockEvent({
+      pageId,
+      type: 'block-created',
+      payload: {
+        block: saved,
+        userId,
+      },
+    });
+
     return saved;
   }
 
@@ -88,6 +99,17 @@ export class BlocksService {
     // Auto-save version
     await this.pagesService.createVersion(block.pageId, userId);
 
+    this.collaborationEventsService.emitBlockEvent({
+      pageId: block.pageId,
+      type: 'block-updated',
+      payload: {
+        blockId: saved.id,
+        content: saved.content,
+        type: saved.type,
+        userId,
+      },
+    });
+
     return saved;
   }
 
@@ -101,6 +123,15 @@ export class BlocksService {
 
     // Auto-save version
     await this.pagesService.createVersion(block.pageId, userId);
+
+    this.collaborationEventsService.emitBlockEvent({
+      pageId: block.pageId,
+      type: 'block-deleted',
+      payload: {
+        blockId,
+        userId,
+      },
+    });
 
     this.logger.log(`Block deleted: ${blockId} by ${userId}`);
   }
@@ -134,6 +165,15 @@ export class BlocksService {
 
     // Auto-save version
     await this.pagesService.createVersion(pageId, userId);
+
+    this.collaborationEventsService.emitBlockEvent({
+      pageId,
+      type: 'block-reordered',
+      payload: {
+        blockIds: dto.blockIds,
+        userId,
+      },
+    });
   }
 
   private async findOneRaw(id: string): Promise<Block> {

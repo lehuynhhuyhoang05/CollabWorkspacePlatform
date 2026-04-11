@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CollaborationGateway } from './collaboration.gateway';
 import { BlocksModule } from '../blocks/blocks.module';
 import { PagesModule } from '../pages/pages.module';
+import { CollaborationEventsModule } from './collaboration-events.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { PagesModule } from '../pages/pages.module';
       }),
       inject: [ConfigService],
     }),
+    CollaborationEventsModule,
     BlocksModule,
     PagesModule,
   ],
