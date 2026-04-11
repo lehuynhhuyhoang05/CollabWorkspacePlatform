@@ -12,6 +12,7 @@ import { InboxPage } from "./features/notifications/InboxPage";
 import { PageDetailPage } from "./features/pages/PageDetailPage";
 import { GoogleOAuthCallbackPage } from "./features/profile/GoogleOAuthCallbackPage";
 import { ProfilePage } from "./features/profile/ProfilePage";
+import { PublicHomePage } from "./features/public/PublicHomePage";
 import { SharePage } from "./features/share/SharePage";
 import { TasksPage } from "./features/tasks/TasksPage";
 import { WorkspaceDetailPage } from "./features/workspaces/WorkspaceDetailPage";
@@ -25,6 +26,8 @@ export default function App() {
   return (
     <>
       <Routes>
+        <Route path="/" element={<PublicHomePage />} />
+
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
@@ -43,7 +46,6 @@ export default function App() {
             </RequireAuth>
           }
         >
-          <Route path="/" element={<Navigate to="/workspaces" replace />} />
           <Route path="/workspaces" element={<WorkspacesPage />} />
           <Route path="/workspaces/:workspaceId" element={<WorkspaceDetailPage />} />
           <Route path="/workspaces/:workspaceId/tasks" element={<TasksPage />} />
