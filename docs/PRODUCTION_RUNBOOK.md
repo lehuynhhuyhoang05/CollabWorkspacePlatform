@@ -8,6 +8,7 @@ Quick pre-demo sequence:
 ## 1. Target architecture
 
 Tren 1 EC2 chay bang docker compose:
+- collab-frontend (static frontend qua nginx)
 - collab-backend (NestJS)
 - collab-postgres (PostgreSQL)
 - collab-redis (Redis)
@@ -49,17 +50,46 @@ cp .env.vm.example .env
 
 Workflow: .github/workflows/deploy.yml
 
-Required secrets (AWS-first):
-- AWS_EC2_HOST
-- AWS_EC2_USER
-- AWS_EC2_SSH_PRIVATE_KEY
-- AWS_DEPLOY_PATH
+Canonical production secrets (recommended):
+- PROD_SSH_HOST
+- PROD_SSH_USER
+- PROD_SSH_PRIVATE_KEY
+- PROD_DEPLOY_PATH
+- PROD_FRONTEND_API_BASE_URL
+- PROD_FRONTEND_URL
+- PROD_GOOGLE_CLIENT_ID
+- PROD_GOOGLE_CLIENT_SECRET
+- PROD_GOOGLE_REDIRECT_URI
+- PROD_GOOGLE_SCOPES
 
-Optional SSL secrets:
-- DOMAIN
-- CERTBOT_EMAIL
+Optional TLS secrets:
+- PROD_DOMAIN
+- PROD_CERTBOT_EMAIL
+
+Legacy fallback secrets currently still supported by workflow:
+- AWS_EC2_HOST, AWS_EC2_USER, AWS_EC2_SSH_PRIVATE_KEY, AWS_DEPLOY_PATH
+- ORACLE_VM_IP, ORACLE_VM_USER, ORACLE_SSH_PRIVATE_KEY, DEPLOY_PATH, DEPLOY_USER
+- DOMAIN, CERTBOT_EMAIL
+- GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, GOOGLE_SCOPES
+- FRONTEND_API_BASE_URL, FRONTEND_URL
 
 Push to main to auto deploy.
+
+### 3.1 End-to-end CI validation checklist
+
+1. Push 1 small commit to `main`.
+2. Open Actions run for `.github/workflows/deploy.yml`.
+3. Verify `Build Backend` and `Deploy To VM` are both green.
+4. Verify runtime after run:
+
+```bash
+curl -i https://api.huyhoang05.id.vn/
+curl -i https://api.huyhoang05.id.vn/health
+curl -i https://api.huyhoang05.id.vn/privacy-policy
+curl -i https://api.huyhoang05.id.vn/terms
+```
+
+5. Only after at least one successful CI deploy, remove any server-side polling deploy cron.
 
 ## 4. Deploy (manual fallback)
 
@@ -191,3 +221,5 @@ docker compose -f docker-compose.prod.yml logs nginx --tail=200
 - [ ] Smoke flow pass
 - [ ] SSL valid (if domain enabled)
 - [ ] Rollback path confirmed
+- [ ] GitHub Actions deploy run passed end-to-end at least once
+- [ ] Server-side polling deploy cron removed

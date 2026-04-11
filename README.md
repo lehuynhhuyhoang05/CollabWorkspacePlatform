@@ -51,6 +51,7 @@ curl http://localhost:3000/health
 
 - [Full Project Spec](docs/PROJECT.md)
 - [Frontend Guide](docs/FRONTEND_GUIDE.md)
+- [Deploy Secrets](docs/DEPLOY_SECRETS.md)
 - [User Guide](docs/USER_GUIDE.md)
 - [E2E Scope Audit](docs/E2E_SCOPE_AUDIT.md)
 - [Frontend Test Workflow](docs/FRONTEND_TEST_WORKFLOW.md)
