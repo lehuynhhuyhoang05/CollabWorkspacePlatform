@@ -6,6 +6,8 @@ import { LoginPage } from "./features/auth/LoginPage";
 import { RegisterPage } from "./features/auth/RegisterPage";
 import { ForgotPasswordPage } from "./features/auth/ForgotPasswordPage";
 import { ResetPasswordPage } from "./features/auth/ResetPasswordPage";
+import { PrivacyPolicyPage } from "./features/legal/PrivacyPolicyPage";
+import { TermsPage } from "./features/legal/TermsPage";
 import { InboxPage } from "./features/notifications/InboxPage";
 import { PageDetailPage } from "./features/pages/PageDetailPage";
 import { GoogleOAuthCallbackPage } from "./features/profile/GoogleOAuthCallbackPage";
@@ -31,6 +33,8 @@ export default function App() {
         </Route>
 
         <Route path="/share/:token" element={<SharePage />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
 
         <Route
           element={
