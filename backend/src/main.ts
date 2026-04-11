@@ -3,7 +3,6 @@ import {
   ValidationPipe,
   ClassSerializerInterceptor,
   Logger,
-  VersioningType,
 } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
@@ -15,6 +14,28 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
 
+  const configuredCorsOrigins = (process.env.FRONTEND_URL || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  const allowedCorsOrigins = [...configuredCorsOrigins];
+
+  if (process.env.NODE_ENV !== 'production') {
+    for (const devOrigin of [
+      'http://localhost:3001',
+      'http://localhost:5173',
+    ]) {
+      if (!allowedCorsOrigins.includes(devOrigin)) {
+        allowedCorsOrigins.push(devOrigin);
+      }
+    }
+  }
+
+  if (allowedCorsOrigins.length === 0) {
+    allowedCorsOrigins.push('http://localhost:3001');
+  }
+
   // ──── Global Prefix ────
   app.setGlobalPrefix('api/v1', {
     exclude: ['health'], // Health check at root /health
@@ -23,11 +44,22 @@ async function bootstrap() {
   // ──── Security ────
   app.use(helmet());
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+    origin: (
+      origin: string | undefined,
+      callback: (error: Error | null, allow?: boolean) => void,
+    ) => {
+      if (!origin || allowedCorsOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`CORS blocked origin: ${origin}`));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
+  logger.log(`CORS origins: ${allowedCorsOrigins.join(', ')}`);
 
   // ──── Global Pipes ────
   app.useGlobalPipes(
@@ -86,7 +118,9 @@ async function bootstrap() {
         operationsSorter: 'alpha',
       },
     });
-    logger.log(`📖 Swagger UI available at http://localhost:${process.env.PORT || 3000}/api/docs`);
+    logger.log(
+      `📖 Swagger UI available at http://localhost:${process.env.PORT || 3000}/api/docs`,
+    );
   }
 
   const port = process.env.PORT || 3000;
@@ -95,4 +129,4 @@ async function bootstrap() {
   logger.log(`🔗 API prefix: /api/v1`);
 }
 
-bootstrap();
+void bootstrap();

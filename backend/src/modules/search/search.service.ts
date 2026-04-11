@@ -142,7 +142,11 @@ export class SearchService {
   private extractPlainText(content: string | null): string {
     if (!content) return '';
     try {
-      const json = JSON.parse(content);
+      const json: unknown = JSON.parse(content);
+      if (!this.isRecord(json)) {
+        return content;
+      }
+
       return this.extractTextRecursive(json);
     } catch {
       return content;
@@ -155,12 +159,19 @@ export class SearchService {
     }
 
     if (Array.isArray(node.content)) {
-      return (node.content as Record<string, unknown>[])
+      return node.content
+        .filter((child): child is Record<string, unknown> =>
+          this.isRecord(child),
+        )
         .map((child) => this.extractTextRecursive(child))
         .join(' ');
     }
 
     return '';
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
   }
 
   private escapeRegex(str: string): string {

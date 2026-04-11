@@ -95,6 +95,10 @@ export function LoginPage() {
           {...form.register("password")}
         />
 
+        <p className="auth-inline-link-row">
+          <Link to="/forgot-password">{t("Quên mật khẩu?", "Forgot password?")}</Link>
+        </p>
+
         <Button type="submit" loading={loginMutation.isPending}>
           {t("Đăng nhập", "Sign In")}
         </Button>

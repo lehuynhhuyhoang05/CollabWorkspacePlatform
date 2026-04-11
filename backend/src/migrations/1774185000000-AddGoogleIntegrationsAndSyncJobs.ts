@@ -7,9 +7,7 @@ import {
   TableIndex,
 } from 'typeorm';
 
-export class AddGoogleIntegrationsAndSyncJobs1774185000000
-  implements MigrationInterface
-{
+export class AddGoogleIntegrationsAndSyncJobs1774185000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     const tasksTable = await queryRunner.getTable('tasks');
 
@@ -151,7 +149,9 @@ export class AddGoogleIntegrationsAndSyncJobs1774185000000
       );
     }
 
-    const syncJobsTable = await queryRunner.getTable('google_calendar_sync_jobs');
+    const syncJobsTable = await queryRunner.getTable(
+      'google_calendar_sync_jobs',
+    );
 
     if (!syncJobsTable) {
       await queryRunner.createTable(
@@ -273,7 +273,9 @@ export class AddGoogleIntegrationsAndSyncJobs1774185000000
       );
     }
 
-    const auditTable = await queryRunner.getTable('google_integration_audit_logs');
+    const auditTable = await queryRunner.getTable(
+      'google_integration_audit_logs',
+    );
 
     if (!auditTable) {
       await queryRunner.createTable(
@@ -380,20 +382,27 @@ export class AddGoogleIntegrationsAndSyncJobs1774185000000
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    const auditTable = await queryRunner.getTable('google_integration_audit_logs');
+    const auditTable = await queryRunner.getTable(
+      'google_integration_audit_logs',
+    );
 
     if (auditTable) {
       const auditIndex = auditTable.indices.find(
         (index) => index.name === 'IDX_GOOGLE_AUDIT_USER_CREATED',
       );
       if (auditIndex) {
-        await queryRunner.dropIndex('google_integration_audit_logs', auditIndex);
+        await queryRunner.dropIndex(
+          'google_integration_audit_logs',
+          auditIndex,
+        );
       }
 
       await queryRunner.dropTable('google_integration_audit_logs');
     }
 
-    const syncJobsTable = await queryRunner.getTable('google_calendar_sync_jobs');
+    const syncJobsTable = await queryRunner.getTable(
+      'google_calendar_sync_jobs',
+    );
 
     if (syncJobsTable) {
       const jobsIndex = syncJobsTable.indices.find(

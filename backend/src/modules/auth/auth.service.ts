@@ -1,5 +1,6 @@
 import {
   Injectable,
+  BadRequestException,
   ConflictException,
   UnauthorizedException,
   Logger,
@@ -7,6 +8,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import { createHash, randomBytes } from 'crypto';
 import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -24,6 +26,7 @@ export interface JwtPayload {
 }
 
 const BCRYPT_SALT_ROUNDS = 12;
+const PASSWORD_RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
 
 @Injectable()
 export class AuthService {
@@ -109,7 +112,9 @@ export class AuthService {
         secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
       });
     } catch {
-      throw new UnauthorizedException('Refresh token không hợp lệ hoặc đã hết hạn');
+      throw new UnauthorizedException(
+        'Refresh token không hợp lệ hoặc đã hết hạn',
+      );
     }
 
     // Compare with stored hash — prevents reuse of old refresh tokens
@@ -148,12 +153,97 @@ export class AuthService {
     this.logger.log(`User logged out: ${userId}`);
   }
 
+  async requestPasswordReset(email: string): Promise<{
+    message: string;
+    resetUrlPreview?: string;
+  }> {
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await this.usersService.findByEmail(normalizedEmail);
+
+    const genericResponse = {
+      message:
+        'Nếu email tồn tại trong hệ thống, chúng tôi đã gửi hướng dẫn đặt lại mật khẩu.',
+    };
+
+    if (!user) {
+      return genericResponse;
+    }
+
+    const rawToken = randomBytes(32).toString('hex');
+    const tokenHash = this.buildResetTokenHash(rawToken);
+    const expiresAt = new Date(Date.now() + PASSWORD_RESET_TOKEN_TTL_MS);
+
+    await this.usersService.setPasswordResetToken(
+      user.id,
+      tokenHash,
+      expiresAt,
+    );
+
+    const frontendBaseUrl =
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
+    const primaryFrontendUrl =
+      frontendBaseUrl.split(',')[0]?.trim() || frontendBaseUrl;
+    const resetUrl = `${primaryFrontendUrl.replace(/\/$/, '')}/reset-password?token=${rawToken}`;
+
+    this.logger.log(
+      `Password reset requested for ${normalizedEmail}. Reset URL: ${resetUrl}`,
+    );
+
+    if (process.env.NODE_ENV !== 'production') {
+      return {
+        ...genericResponse,
+        resetUrlPreview: resetUrl,
+      };
+    }
+
+    return genericResponse;
+  }
+
+  async resetPassword(
+    token: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
+    const normalizedToken = token.trim();
+    if (!normalizedToken) {
+      throw new BadRequestException('Token đặt lại mật khẩu không hợp lệ');
+    }
+
+    const tokenHash = this.buildResetTokenHash(normalizedToken);
+    const user =
+      await this.usersService.findByPasswordResetTokenHash(tokenHash);
+
+    if (!user) {
+      throw new BadRequestException(
+        'Token đặt lại mật khẩu không hợp lệ hoặc đã hết hạn',
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
+
+    await this.usersService.updatePassword(user.id, hashedPassword);
+    await this.usersService.clearPasswordResetToken(user.id);
+    await this.usersService.updateRefreshToken(user.id, null);
+
+    this.logger.log(`Password reset completed for user: ${user.id}`);
+    return {
+      message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập lại.',
+    };
+  }
+
   /**
    * Get current user profile (without sensitive fields).
    */
   async getMe(userId: string) {
     const user = await this.usersService.findById(userId);
-    const { password: _, refreshTokenHash: __, ...safeUser } = user;
+    const safeUser = {
+      ...user,
+    } as Partial<User>;
+
+    delete safeUser.password;
+    delete safeUser.refreshTokenHash;
+    delete safeUser.passwordResetTokenHash;
+    delete safeUser.passwordResetExpiresAt;
+
     return safeUser;
   }
 
@@ -191,5 +281,9 @@ export class AuthService {
   ): Promise<void> {
     const hash = await bcrypt.hash(refreshToken, BCRYPT_SALT_ROUNDS);
     await this.usersService.updateRefreshToken(userId, hash);
+  }
+
+  private buildResetTokenHash(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
   }
 }

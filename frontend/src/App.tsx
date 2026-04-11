@@ -4,6 +4,8 @@ import { AppLayout } from "./components/layout/AppLayout";
 import { AuthLayout } from "./components/layout/AuthLayout";
 import { LoginPage } from "./features/auth/LoginPage";
 import { RegisterPage } from "./features/auth/RegisterPage";
+import { ForgotPasswordPage } from "./features/auth/ForgotPasswordPage";
+import { ResetPasswordPage } from "./features/auth/ResetPasswordPage";
 import { InboxPage } from "./features/notifications/InboxPage";
 import { PageDetailPage } from "./features/pages/PageDetailPage";
 import { GoogleOAuthCallbackPage } from "./features/profile/GoogleOAuthCallbackPage";
@@ -13,14 +15,19 @@ import { TasksPage } from "./features/tasks/TasksPage";
 import { WorkspaceDetailPage } from "./features/workspaces/WorkspaceDetailPage";
 import { WorkspacesPage } from "./features/workspaces/WorkspacesPage";
 import { ToastViewport } from "./components/common/ToastViewport";
+import { useTheme } from "./lib/theme";
 
 export default function App() {
+  useTheme();
+
   return (
     <>
       <Routes>
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
         </Route>
 
         <Route path="/share/:token" element={<SharePage />} />

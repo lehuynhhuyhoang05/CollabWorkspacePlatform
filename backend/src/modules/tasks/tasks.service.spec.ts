@@ -54,6 +54,8 @@ describe('TasksService update RBAC', () => {
       recordWorkspaceActivity: jest.fn(),
       createTaskAssignedNotification: jest.fn(),
       createDeadlineReminderForTask: jest.fn(),
+      createTaskOverdueNotification: jest.fn(),
+      createTaskStatusChangeNotifications: jest.fn(),
     };
 
     service = new TasksService(

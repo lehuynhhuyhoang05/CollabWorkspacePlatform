@@ -7,12 +7,20 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiBody,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
@@ -23,7 +31,10 @@ export class AuthController {
 
   @Post('register')
   @ApiOperation({ summary: 'Đăng ký tài khoản mới' })
-  @ApiResponse({ status: 201, description: 'Đăng ký thành công, trả về access + refresh token' })
+  @ApiResponse({
+    status: 201,
+    description: 'Đăng ký thành công, trả về access + refresh token',
+  })
   @ApiResponse({ status: 409, description: 'Email đã tồn tại' })
   async register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
@@ -44,9 +55,36 @@ export class AuthController {
   @ApiOperation({ summary: 'Refresh access token' })
   @ApiResponse({ status: 200, description: 'Token mới' })
   @ApiResponse({ status: 401, description: 'Refresh token không hợp lệ' })
-  @ApiResponse({ status: 429, description: 'Quá nhiều lần refresh trong thời gian ngắn' })
+  @ApiResponse({
+    status: 429,
+    description: 'Quá nhiều lần refresh trong thời gian ngắn',
+  })
   async refresh(@Body() dto: RefreshTokenDto) {
     return this.authService.refresh(dto.refreshToken);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({ summary: 'Yêu cầu đặt lại mật khẩu' })
+  @ApiBody({ type: ForgotPasswordDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Luôn trả về thông điệp chung để tránh lộ email tồn tại',
+  })
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.requestPasswordReset(dto.email);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 8, ttl: 60000 } })
+  @ApiOperation({ summary: 'Đặt lại mật khẩu bằng token' })
+  @ApiBody({ type: ResetPasswordDto })
+  @ApiResponse({ status: 200, description: 'Đặt lại mật khẩu thành công' })
+  @ApiResponse({ status: 400, description: 'Token không hợp lệ hoặc hết hạn' })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto.token, dto.newPassword);
   }
 
   @Post('logout')

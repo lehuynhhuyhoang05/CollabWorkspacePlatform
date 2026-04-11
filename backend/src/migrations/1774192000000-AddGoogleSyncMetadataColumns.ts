@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner, TableColumn } from 'typeorm';
 
-export class AddGoogleSyncMetadataColumns1774192000000
-  implements MigrationInterface
-{
+export class AddGoogleSyncMetadataColumns1774192000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     const tasksTable = await queryRunner.getTable('tasks');
     if (!tasksTable) {

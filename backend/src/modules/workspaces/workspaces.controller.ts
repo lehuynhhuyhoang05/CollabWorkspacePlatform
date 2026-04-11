@@ -8,13 +8,22 @@ import {
   Param,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { WorkspacesService } from './workspaces.service';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto';
 import { UpdateWorkspaceDto } from './dto/update-workspace.dto';
-import { InviteMemberDto, UpdateMemberRoleDto } from './dto/member.dto';
+import {
+  InviteMemberDto,
+  RespondInvitationDto,
+  UpdateMemberRoleDto,
+} from './dto/member.dto';
 
 @ApiTags('Workspaces')
 @ApiBearerAuth('access-token')
@@ -33,6 +42,26 @@ export class WorkspacesController {
   @ApiOperation({ summary: 'Danh sách workspace của tôi' })
   findAll(@CurrentUser('id') userId: string) {
     return this.workspacesService.findAllForUser(userId);
+  }
+
+  @Get('invitations/incoming')
+  @ApiOperation({ summary: 'Danh sách lời mời workspace đang chờ phản hồi' })
+  listIncomingInvitations(@CurrentUser('id') userId: string) {
+    return this.workspacesService.listIncomingInvitations(userId);
+  }
+
+  @Patch('invitations/:invitationId/respond')
+  @ApiOperation({ summary: 'Phản hồi lời mời workspace (accept/refuse)' })
+  respondInvitation(
+    @Param('invitationId') invitationId: string,
+    @Body() dto: RespondInvitationDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.workspacesService.respondInvitation(
+      invitationId,
+      userId,
+      dto.action,
+    );
   }
 
   @Get(':id')
@@ -73,6 +102,15 @@ export class WorkspacesController {
       dto.role!,
       userId,
     );
+  }
+
+  @Get(':id/invitations')
+  @ApiOperation({ summary: 'Danh sách lời mời của workspace' })
+  listWorkspaceInvitations(
+    @Param('id') workspaceId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.workspacesService.listWorkspaceInvitations(workspaceId, userId);
   }
 
   @Get(':id/members')

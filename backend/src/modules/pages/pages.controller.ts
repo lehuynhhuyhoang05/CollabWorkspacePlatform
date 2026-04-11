@@ -10,7 +10,12 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { PagesService } from './pages.service';

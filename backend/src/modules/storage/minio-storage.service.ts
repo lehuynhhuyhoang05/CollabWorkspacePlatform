@@ -27,9 +27,15 @@ export class MinioStorageService implements IStorageService {
     ext: string,
   ): Promise<string> {
     const objectName = `${userId}/${uuidv4()}.${ext}`;
-    await this.client.putObject(this.bucket, objectName, buffer, buffer.length, {
-      'Content-Type': mimeType,
-    });
+    await this.client.putObject(
+      this.bucket,
+      objectName,
+      buffer,
+      buffer.length,
+      {
+        'Content-Type': mimeType,
+      },
+    );
     return objectName;
   }
 

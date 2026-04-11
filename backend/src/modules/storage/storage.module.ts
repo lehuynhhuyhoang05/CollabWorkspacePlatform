@@ -10,7 +10,6 @@ import { StorageController } from './storage.controller';
     {
       provide: 'STORAGE_SERVICE',
       useFactory: (config: ConfigService) => {
-        const type = config.get<string>('STORAGE_TYPE', 'minio');
         // Phase 2: add OCI storage service when deploying to Oracle Cloud
         // if (type === 'oci') return new OciStorageService(config);
         return new MinioStorageService(config);

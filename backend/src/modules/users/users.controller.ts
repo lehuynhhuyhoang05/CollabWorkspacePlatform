@@ -1,10 +1,4 @@
-import {
-  Controller,
-  Get,
-  Patch,
-  Body,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Patch, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -22,7 +16,11 @@ export class UsersController {
   @ApiOperation({ summary: 'Lấy profile của mình' })
   async getProfile(@CurrentUser('id') userId: string) {
     const user = await this.usersService.findById(userId);
-    const { password: _, refreshTokenHash: __, ...safeUser } = user;
+    const safeUser = { ...user } as Partial<typeof user>;
+    delete safeUser.password;
+    delete safeUser.refreshTokenHash;
+    delete safeUser.passwordResetTokenHash;
+    delete safeUser.passwordResetExpiresAt;
     return safeUser;
   }
 
@@ -33,7 +31,11 @@ export class UsersController {
     @Body() dto: UpdateUserDto,
   ) {
     const user = await this.usersService.update(userId, dto);
-    const { password: _, refreshTokenHash: __, ...safeUser } = user;
+    const safeUser = { ...user } as Partial<typeof user>;
+    delete safeUser.password;
+    delete safeUser.refreshTokenHash;
+    delete safeUser.passwordResetTokenHash;
+    delete safeUser.passwordResetExpiresAt;
     return safeUser;
   }
 }

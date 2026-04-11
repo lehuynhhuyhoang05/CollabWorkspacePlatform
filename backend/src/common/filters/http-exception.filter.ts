@@ -26,8 +26,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
       message =
         typeof exceptionResponse === 'string'
           ? exceptionResponse
-          : (exceptionResponse as Record<string, unknown>).message as string ||
-            exception.message;
+          : ((exceptionResponse as Record<string, unknown>)
+              .message as string) || exception.message;
     } else if (exception instanceof Error) {
       message = exception.message;
       this.logger.error(

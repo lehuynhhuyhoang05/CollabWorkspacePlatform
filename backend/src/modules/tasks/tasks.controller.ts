@@ -58,10 +58,7 @@ export class TasksController {
 
   @Delete('tasks/:id')
   @ApiOperation({ summary: 'Xóa task' })
-  remove(
-    @Param('id') id: string,
-    @CurrentUser('id') userId: string,
-  ) {
+  remove(@Param('id') id: string, @CurrentUser('id') userId: string) {
     return this.tasksService.remove(id, userId);
   }
 }

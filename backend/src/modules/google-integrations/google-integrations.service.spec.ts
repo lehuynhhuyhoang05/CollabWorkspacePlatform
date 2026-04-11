@@ -147,7 +147,9 @@ describe('GoogleIntegrationsService', () => {
     expect(secondSaveArg.status).toBe('retrying');
     expect(secondSaveArg.attempts).toBe(1);
     expect(secondSaveArg.nextRetryAt).toBeInstanceOf(Date);
-    expect(secondSaveArg.lastError).toContain('Bạn chưa kết nối Google account');
+    expect(secondSaveArg.lastError).toContain(
+      'Bạn chưa kết nối Google account',
+    );
 
     const auditSaved = auditLogsRepository.save.mock.calls[0][0];
     expect(auditSaved.action).toBe('sync_job_run');
@@ -273,7 +275,9 @@ describe('GoogleIntegrationsService', () => {
     const savedTask = tasksRepository.save.mock.calls[0][0];
     expect(savedTask.googleEventId).toBe('event-1');
     expect(savedTask.googleCalendarId).toBe('primary');
-    expect(savedTask.googleMeetUrl).toBe('https://meet.google.com/aaa-bbbb-ccc');
+    expect(savedTask.googleMeetUrl).toBe(
+      'https://meet.google.com/aaa-bbbb-ccc',
+    );
 
     const auditSaved = auditLogsRepository.save.mock.calls[0][0];
     expect(auditSaved.action).toBe('calendar_event_create');

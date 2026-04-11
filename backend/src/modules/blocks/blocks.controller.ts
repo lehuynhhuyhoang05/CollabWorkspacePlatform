@@ -12,7 +12,11 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { BlocksService } from './blocks.service';
-import { CreateBlockDto, UpdateBlockDto, ReorderBlocksDto } from './dto/block.dto';
+import {
+  CreateBlockDto,
+  UpdateBlockDto,
+  ReorderBlocksDto,
+} from './dto/block.dto';
 
 @ApiTags('Blocks')
 @ApiBearerAuth('access-token')
@@ -23,10 +27,7 @@ export class BlocksController {
 
   @Get('pages/:pid/blocks')
   @ApiOperation({ summary: 'Danh sách blocks của page' })
-  findAll(
-    @Param('pid') pageId: string,
-    @CurrentUser('id') userId: string,
-  ) {
+  findAll(@Param('pid') pageId: string, @CurrentUser('id') userId: string) {
     return this.blocksService.findAllForPage(pageId, userId);
   }
 
@@ -52,10 +53,7 @@ export class BlocksController {
 
   @Delete('blocks/:id')
   @ApiOperation({ summary: 'Xoá block' })
-  remove(
-    @Param('id') id: string,
-    @CurrentUser('id') userId: string,
-  ) {
+  remove(@Param('id') id: string, @CurrentUser('id') userId: string) {
     return this.blocksService.remove(id, userId);
   }
 

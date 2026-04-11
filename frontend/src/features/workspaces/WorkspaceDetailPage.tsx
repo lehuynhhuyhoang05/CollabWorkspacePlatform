@@ -39,6 +39,10 @@ function PageTree({ nodes, t }: { nodes: PageTreeNode[]; t: TranslateFn }) {
   );
 }
 
+function countPageNodes(nodes: PageTreeNode[]): number {
+  return nodes.reduce((total, node) => total + 1 + countPageNodes(node.children), 0);
+}
+
 export function WorkspaceDetailPage() {
   const { workspaceId = "" } = useParams();
   const queryClient = useQueryClient();
@@ -51,6 +55,7 @@ export function WorkspaceDetailPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchHint, setSearchHint] = useState("");
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+  const [showWorkspaceQr, setShowWorkspaceQr] = useState(false);
 
   const workspaceQuery = useQuery({
     queryKey: ["workspace", workspaceId],
@@ -73,6 +78,13 @@ export function WorkspaceDetailPage() {
   const activitiesQuery = useQuery({
     queryKey: ["workspace", workspaceId, "activities"],
     queryFn: () => notificationsApi.listWorkspaceActivities(workspaceId, 30),
+    enabled: Boolean(workspaceId),
+    staleTime: 15_000,
+  });
+
+  const workspaceInvitationsQuery = useQuery({
+    queryKey: ["workspace", workspaceId, "invitations"],
+    queryFn: () => workspacesApi.listWorkspaceInvitations(workspaceId),
     enabled: Boolean(workspaceId),
     staleTime: 15_000,
   });
@@ -103,10 +115,14 @@ export function WorkspaceDetailPage() {
     onSuccess: () => {
       setInviteEmail("");
       queryClient.invalidateQueries({ queryKey: ["workspace", workspaceId, "members"] });
+      queryClient.invalidateQueries({ queryKey: ["workspace", workspaceId, "invitations"] });
       pushToast({
         kind: "success",
         title: t("Đã gửi lời mời", "Invitation sent"),
-        message: t("Thành viên đã được mời vào workspace.", "Member has been invited to workspace."),
+        message: t(
+          "Lời mời đã được gửi. User cần chấp nhận để trở thành member.",
+          "Invitation sent. The user must accept before becoming a member.",
+        ),
       });
     },
   });
@@ -150,7 +166,8 @@ export function WorkspaceDetailPage() {
       inviteMutation.error ||
       searchMutation.error ||
       updateRoleMutation.error ||
-      removeMemberMutation.error,
+      removeMemberMutation.error ||
+      workspaceInvitationsQuery.error,
     [
       workspaceQuery.error,
       treeQuery.error,
@@ -161,8 +178,37 @@ export function WorkspaceDetailPage() {
       searchMutation.error,
       updateRoleMutation.error,
       removeMemberMutation.error,
+      workspaceInvitationsQuery.error,
     ],
   );
+
+  const pendingWorkspaceInvitations = useMemo(
+    () =>
+      (workspaceInvitationsQuery.data ?? []).filter(
+        (invitation) => invitation.status === "pending",
+      ),
+    [workspaceInvitationsQuery.data],
+  );
+
+  const workspaceShareUrl = useMemo(() => {
+    if (typeof window === "undefined") {
+      return "";
+    }
+
+    return `${window.location.origin}/workspaces/${workspaceId}`;
+  }, [workspaceId]);
+
+  const workspaceQrImageUrl = useMemo(() => {
+    if (!workspaceShareUrl) {
+      return "";
+    }
+
+    return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(workspaceShareUrl)}`;
+  }, [workspaceShareUrl]);
+
+  const totalPages = useMemo(() => countPageNodes(treeQuery.data ?? []), [treeQuery.data]);
+  const totalMembers = (membersQuery.data ?? []).length;
+  const totalActivities = (activitiesQuery.data ?? []).length;
 
   if (workspaceQuery.isPending || treeQuery.isPending || membersQuery.isPending) {
     return <Loader text={t("Đang tải chi tiết workspace...", "Loading workspace details...")} />;
@@ -170,26 +216,62 @@ export function WorkspaceDetailPage() {
 
   return (
     <div className="page-stack">
-      <div className="page-header-row">
-        <div>
-          <p className="chip">{t("Không gian", "Workspace")}</p>
-          <h1>{workspaceQuery.data?.name}</h1>
+      <div className="hero-panel workspace-detail-hero">
+        <div className="workspace-detail-head-row">
+          <div>
+            <p className="chip">{t("Không gian", "Workspace")}</p>
+            <h1>{workspaceQuery.data?.name}</h1>
+            <p className="muted-text">
+              {t(
+                "Quản lý pages, thành viên và hoạt động theo thời gian thực trong cùng một màn hình.",
+                "Manage pages, members, and realtime workspace activity from one screen.",
+              )}
+            </p>
+          </div>
+          <div className="workspace-detail-actions">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setShowWorkspaceQr(true)}
+            >
+              {t("Share QR", "Share QR")}
+            </Button>
+            <Link to={`/workspaces/${workspaceId}/tasks`} className="link-button workspace-open-link">
+              {t("Mở Tasks", "Open Tasks")}
+            </Link>
+            <Link to="/workspaces" className="link-button">
+              {t("Quay lại danh sách workspace", "Back to Workspaces")}
+            </Link>
+          </div>
         </div>
-        <div className="inline-actions">
-          <Link to={`/workspaces/${workspaceId}/tasks`} className="link-button">
-            {t("Mở Tasks", "Open Tasks")}
-          </Link>
-          <Link to="/workspaces" className="link-button">
-            {t("Quay lại danh sách workspace", "Back to Workspaces")}
-          </Link>
+
+        <div className="workspace-detail-metrics" role="list" aria-label={t("Tổng quan workspace", "Workspace overview")}>
+          <article className="workspace-metric-card" role="listitem">
+            <p>{t("Tổng page", "Total pages")}</p>
+            <strong>{totalPages}</strong>
+          </article>
+          <article className="workspace-metric-card" role="listitem">
+            <p>{t("Thành viên", "Members")}</p>
+            <strong>{totalMembers}</strong>
+          </article>
+          <article className="workspace-metric-card" role="listitem">
+            <p>{t("Activity gần đây", "Recent activities")}</p>
+            <strong>{totalActivities}</strong>
+          </article>
         </div>
       </div>
 
       {topError ? <ErrorBanner message={getErrorMessage(topError)} /> : null}
 
-      <div className="two-col-grid">
-        <Card>
+      <div className="two-col-grid workspace-detail-grid">
+        <Card className="workspace-panel-card">
           <h2 className="card-title">{t("Trang nội dung", "Pages")}</h2>
+          <p className="muted-text">
+            {t(
+              "Tạo page mới rồi mở để thêm block nội dung ngay trong workspace.",
+              "Create a new page, then open it to start adding content blocks.",
+            )}
+          </p>
           <div className="grid-form">
             <Input
               label={t("Tiêu đề", "Title")}
@@ -220,8 +302,14 @@ export function WorkspaceDetailPage() {
           </div>
         </Card>
 
-        <Card>
+        <Card className="workspace-panel-card">
           <h2 className="card-title">{t("Tìm kiếm trong workspace", "Search in Workspace")}</h2>
+          <p className="muted-text">
+            {t(
+              "Tìm theo tiêu đề hoặc nội dung để mở đúng page nhanh hơn.",
+              "Search by title or content to jump to the right page faster.",
+            )}
+          </p>
           <div className="search-row">
             <Input
               value={searchQuery}
@@ -281,8 +369,11 @@ export function WorkspaceDetailPage() {
         </Card>
       </div>
 
-      <Card>
-        <h2 className="card-title">{t("Thành viên", "Members")}</h2>
+      <Card className="workspace-members-card">
+        <div className="integration-list-row">
+          <h2 className="card-title">{t("Thành viên", "Members")}</h2>
+          <span className="task-meta-pill">{totalMembers} {t("người", "members")}</span>
+        </div>
         <div className="invite-row">
           <Input
             label={t("Mời bằng email", "Invite by email")}
@@ -393,7 +484,114 @@ export function WorkspaceDetailPage() {
         </table>
       </Card>
 
-      <Card>
+      {showWorkspaceQr ? (
+        <div
+          className="workspace-qr-modal-backdrop"
+          role="presentation"
+          onClick={() => setShowWorkspaceQr(false)}
+        >
+          <section
+            className="workspace-qr-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("Chia sẻ workspace bằng QR", "Share workspace via QR")}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="workspace-list-head">
+              <h3 className="card-subtitle">{t("QR chia sẻ workspace", "Workspace share QR")}</h3>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setShowWorkspaceQr(false)}
+              >
+                {t("Đóng", "Close")}
+              </Button>
+            </div>
+
+            {workspaceQrImageUrl ? (
+              <img
+                className="workspace-qr-image"
+                src={workspaceQrImageUrl}
+                alt={t("Mã QR chia sẻ workspace", "Workspace share QR code")}
+              />
+            ) : null}
+
+            <p className="muted-text">{workspaceShareUrl}</p>
+
+            <div className="inline-actions">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={async () => {
+                  if (!workspaceShareUrl) return;
+                  try {
+                    await navigator.clipboard.writeText(workspaceShareUrl);
+                    pushToast({
+                      kind: "success",
+                      title: t("Đã copy link", "Link copied"),
+                      message: t(
+                        "Link workspace đã được copy.",
+                        "Workspace link has been copied.",
+                      ),
+                    });
+                  } catch {
+                    pushToast({
+                      kind: "error",
+                      title: t("Không thể copy", "Unable to copy"),
+                      message: t(
+                        "Trình duyệt không cho phép copy tự động. Bạn có thể copy thủ công từ ô link.",
+                        "Browser blocked automatic copy. Please copy manually from the link text.",
+                      ),
+                    });
+                  }
+                }}
+              >
+                {t("Copy link", "Copy link")}
+              </Button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      <Card className="workspace-invitation-card">
+        <div className="workspace-list-head">
+          <h2 className="card-title">{t("Lời mời đã gửi", "Outgoing invitations")}</h2>
+          <span className="task-meta-pill">
+            {pendingWorkspaceInvitations.length} {t("đang chờ", "pending")}
+          </span>
+        </div>
+
+        {workspaceInvitationsQuery.isPending ? (
+          <p className="muted-text">{t("Đang tải lời mời...", "Loading invitations...")}</p>
+        ) : null}
+
+        {!workspaceInvitationsQuery.isPending && pendingWorkspaceInvitations.length === 0 ? (
+          <p className="muted-text">
+            {t(
+              "Chưa có lời mời nào đang chờ phản hồi.",
+              "No pending invitations for this workspace.",
+            )}
+          </p>
+        ) : null}
+
+        {pendingWorkspaceInvitations.length > 0 ? (
+          <ul className="workspace-invitation-list">
+            {pendingWorkspaceInvitations.map((invitation) => (
+              <li key={invitation.id}>
+                <div>
+                  <p className="task-title">{invitation.invitee?.name || invitation.inviteeId}</p>
+                  <p className="muted-text">
+                    {invitation.invitee?.email || "-"} • {t("Vai trò", "Role")}: {invitation.role}
+                  </p>
+                </div>
+                <span className="task-meta-pill">{new Date(invitation.createdAt).toLocaleString()}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </Card>
+
+      <Card className="workspace-activity-card">
         <div className="inline-actions">
           <h2 className="card-title">{t("Activity Feed", "Activity Feed")}</h2>
           <Button

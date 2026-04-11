@@ -7,10 +7,7 @@ import { SearchController } from './search.controller';
 import { WorkspacesModule } from '../workspaces/workspaces.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Page, Block]),
-    WorkspacesModule,
-  ],
+  imports: [TypeOrmModule.forFeature([Page, Block]), WorkspacesModule],
   controllers: [SearchController],
   providers: [SearchService],
 })

@@ -21,7 +21,12 @@ export class GoogleAccount {
   @Column({ type: 'varchar', length: 36, name: 'user_id' })
   userId: string;
 
-  @Column({ type: 'varchar', length: 255, name: 'google_email', nullable: true })
+  @Column({
+    type: 'varchar',
+    length: 255,
+    name: 'google_email',
+    nullable: true,
+  })
   googleEmail: string | null;
 
   @Column({ type: 'text', name: 'access_token' })

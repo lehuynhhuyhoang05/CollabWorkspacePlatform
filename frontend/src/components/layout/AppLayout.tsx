@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { authApi } from "../../api/auth.api";
 import { notificationsApi } from "../../api/notifications.api";
 import { useLocale } from "../../lib/locale";
+import { useTheme } from "../../lib/theme";
 import { useAuthStore } from "../../store/auth.store";
 import { useToastStore } from "../../store/toast.store";
 import { Button } from "../ui/Button";
@@ -13,6 +14,7 @@ export function AppLayout() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { locale, setLocale, t } = useLocale();
+  const { isDark, toggleTheme } = useTheme();
   const pushToast = useToastStore((state) => state.pushToast);
   const { user, accessToken, setUser, clearAuth } = useAuthStore();
 
@@ -82,6 +84,15 @@ export function AppLayout() {
         </div>
 
         <div className="topbar-right">
+          <button
+            type="button"
+            className="theme-toggle"
+            onClick={toggleTheme}
+            aria-label={t("Đổi giao diện sáng/tối", "Toggle light or dark theme")}
+            title={t("Đổi giao diện sáng/tối", "Toggle light or dark theme")}
+          >
+            {isDark ? t("Sáng", "Light") : t("Tối", "Dark")}
+          </button>
           <div className="locale-switch" role="group" aria-label={t("Chọn ngôn ngữ", "Choose language")}>
             <button
               type="button"

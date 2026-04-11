@@ -22,6 +22,15 @@ interface UpdateProfileInput {
   avatarUrl?: string;
 }
 
+interface ForgotPasswordInput {
+  email: string;
+}
+
+interface ResetPasswordInput {
+  token: string;
+  newPassword: string;
+}
+
 export const authApi = {
   async register(input: RegisterInput): Promise<TokenPair> {
     return withApiError(
@@ -57,6 +66,28 @@ export const authApi = {
     return withApiError(
       http
         .post<ApiEnvelope<{ message: string }>>("/auth/logout")
+        .then((res) => unwrap(res.data)),
+    );
+  },
+
+  async forgotPassword(input: ForgotPasswordInput): Promise<{
+    message: string;
+    resetUrlPreview?: string;
+  }> {
+    return withApiError(
+      http
+        .post<ApiEnvelope<{ message: string; resetUrlPreview?: string }>>(
+          "/auth/forgot-password",
+          input,
+        )
+        .then((res) => unwrap(res.data)),
+    );
+  },
+
+  async resetPassword(input: ResetPasswordInput): Promise<{ message: string }> {
+    return withApiError(
+      http
+        .post<ApiEnvelope<{ message: string }>>("/auth/reset-password", input)
         .then((res) => unwrap(res.data)),
     );
   },

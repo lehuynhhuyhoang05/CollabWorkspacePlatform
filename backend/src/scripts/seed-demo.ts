@@ -116,7 +116,9 @@ async function bootstrap() {
     }
 
     const page = await pagesService.findOne(demoPage.id, owner.id);
-    const existingText = (page.blocks || []).map((b) => b.content || '').join(' ');
+    const existingText = (page.blocks || [])
+      .map((b) => b.content || '')
+      .join(' ');
 
     if (!existingText.includes('Welcome to demo workspace')) {
       await blocksService.create(

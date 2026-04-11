@@ -8,9 +8,7 @@ const dataSourceOptions: DataSourceOptions =
     ? {
         type: 'oracle',
         username: process.env.ORACLE_USER,
-        password: (process.env.ORACLE_PASSWORD ?? undefined) as
-          | string
-          | undefined,
+        password: process.env.ORACLE_PASSWORD ?? undefined,
         connectString: process.env.ORACLE_CONNECTION_STRING,
         entities: [__dirname + '/../modules/**/entities/*.entity{.ts,.js}'],
         migrations: [__dirname + '/../migrations/*{.ts,.js}'],
@@ -22,7 +20,7 @@ const dataSourceOptions: DataSourceOptions =
         host: process.env.DB_HOST || 'localhost',
         port: Number(process.env.DB_PORT || 5432),
         username: process.env.DB_USER || 'collab_user',
-        password: (process.env.DB_PASSWORD ?? 'collab_pass') as string,
+        password: process.env.DB_PASSWORD ?? 'collab_pass',
         database: process.env.DB_NAME || 'collab_workspace',
         entities: [__dirname + '/../modules/**/entities/*.entity{.ts,.js}'],
         migrations: [__dirname + '/../migrations/*{.ts,.js}'],

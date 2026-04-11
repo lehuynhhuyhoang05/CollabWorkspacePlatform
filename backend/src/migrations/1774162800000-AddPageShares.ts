@@ -87,8 +87,12 @@ export class AddPageShares1774162800000 implements MigrationInterface {
   public async down(queryRunner: QueryRunner): Promise<void> {
     const table = await queryRunner.getTable('page_shares');
     if (table) {
-      const pageFk = table.foreignKeys.find((fk) => fk.columnNames.includes('page_id'));
-      const userFk = table.foreignKeys.find((fk) => fk.columnNames.includes('user_id'));
+      const pageFk = table.foreignKeys.find((fk) =>
+        fk.columnNames.includes('page_id'),
+      );
+      const userFk = table.foreignKeys.find((fk) =>
+        fk.columnNames.includes('user_id'),
+      );
       if (pageFk) {
         await queryRunner.dropForeignKey('page_shares', pageFk);
       }

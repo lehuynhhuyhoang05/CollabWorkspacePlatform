@@ -1,8 +1,10 @@
 import { Link, Outlet } from "react-router-dom";
 import { useLocale } from "../../lib/locale";
+import { useTheme } from "../../lib/theme";
 
 export function AuthLayout() {
   const { locale, setLocale, t } = useLocale();
+  const { isDark, toggleTheme } = useTheme();
 
   return (
     <main className="auth-screen">
@@ -44,23 +46,34 @@ export function AuthLayout() {
         <div className="auth-form-shell">
           <div className="auth-shell-head">
             <Link to="/" className="brand-link">CloudCollab</Link>
-            <div className="locale-switch" role="group" aria-label={t("Chọn ngôn ngữ", "Choose language")}>
+            <div className="auth-head-controls">
               <button
                 type="button"
-                className={locale === "vi" ? "locale-btn active" : "locale-btn"}
-                onClick={() => setLocale("vi")}
-                aria-pressed={locale === "vi"}
+                className="theme-toggle"
+                onClick={toggleTheme}
+                aria-label={t("Đổi giao diện sáng/tối", "Toggle light or dark theme")}
+                title={t("Đổi giao diện sáng/tối", "Toggle light or dark theme")}
               >
-                VI
+                {isDark ? t("Sáng", "Light") : t("Tối", "Dark")}
               </button>
-              <button
-                type="button"
-                className={locale === "en" ? "locale-btn active" : "locale-btn"}
-                onClick={() => setLocale("en")}
-                aria-pressed={locale === "en"}
-              >
-                EN
-              </button>
+              <div className="locale-switch" role="group" aria-label={t("Chọn ngôn ngữ", "Choose language")}>
+                <button
+                  type="button"
+                  className={locale === "vi" ? "locale-btn active" : "locale-btn"}
+                  onClick={() => setLocale("vi")}
+                  aria-pressed={locale === "vi"}
+                >
+                  VI
+                </button>
+                <button
+                  type="button"
+                  className={locale === "en" ? "locale-btn active" : "locale-btn"}
+                  onClick={() => setLocale("en")}
+                  aria-pressed={locale === "en"}
+                >
+                  EN
+                </button>
+              </div>
             </div>
           </div>
           <Outlet />

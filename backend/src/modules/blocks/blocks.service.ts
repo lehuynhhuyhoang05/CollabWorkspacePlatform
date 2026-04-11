@@ -1,12 +1,12 @@
-import {
-  Injectable,
-  NotFoundException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Block } from './entities/block.entity';
-import { CreateBlockDto, UpdateBlockDto, ReorderBlocksDto } from './dto/block.dto';
+import {
+  CreateBlockDto,
+  UpdateBlockDto,
+  ReorderBlocksDto,
+} from './dto/block.dto';
 import { PagesService } from '../pages/pages.service';
 
 @Injectable()
@@ -44,8 +44,10 @@ export class BlocksService {
         .createQueryBuilder('b')
         .select('COALESCE(MAX(b.sort_order), -1)', 'max')
         .where('b.page_id = :pageId', { pageId })
-        .getRawOne();
-      sortOrder = (maxSort?.max ?? -1) + 1;
+        .getRawOne<{ max: string | number | null }>();
+
+      const maxSortValue = Number(maxSort?.max ?? -1);
+      sortOrder = Number.isFinite(maxSortValue) ? maxSortValue + 1 : 0;
     }
 
     const block = this.blocksRepository.create({
@@ -121,9 +123,7 @@ export class BlocksService {
     });
 
     if (blocks.length !== dto.blockIds.length) {
-      throw new NotFoundException(
-        'Một hoặc nhiều block không thuộc page này',
-      );
+      throw new NotFoundException('Một hoặc nhiều block không thuộc page này');
     }
 
     // Update sort_order in batch

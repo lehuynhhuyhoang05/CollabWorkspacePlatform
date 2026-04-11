@@ -56,7 +56,10 @@ describe('StorageController', () => {
       'image/png',
       'png',
     );
-    expect(result).toEqual({ objectName: 'u1/object.png', url: 'http://signed-url' });
+    expect(result).toEqual({
+      objectName: 'u1/object.png',
+      url: 'http://signed-url',
+    });
   });
 
   it('remove should reject deleting key outside user namespace', async () => {

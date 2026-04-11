@@ -44,6 +44,30 @@ export interface WorkspaceMember {
   user?: User;
 }
 
+export type WorkspaceInvitationStatus =
+  | "pending"
+  | "accepted"
+  | "refused"
+  | "canceled";
+
+export type WorkspaceInvitationAction = "accept" | "refuse";
+
+export interface WorkspaceInvitation {
+  id: string;
+  workspaceId: string;
+  inviterId: string;
+  inviteeId: string;
+  role: WorkspaceRole;
+  status: WorkspaceInvitationStatus;
+  message: string | null;
+  respondedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  workspace?: Workspace | null;
+  inviter?: User | null;
+  invitee?: User | null;
+}
+
 export interface PageTreeNode {
   id: string;
   title: string;
@@ -294,7 +318,16 @@ export interface GoogleAuditLog {
   createdAt: string;
 }
 
-export type NotificationType = "mention" | "taskAssigned" | "deadlineReminder";
+export type NotificationType =
+  | "mention"
+  | "taskAssigned"
+  | "deadlineReminder"
+  | "taskBlocked"
+  | "taskCompleted"
+  | "taskOverdue"
+  | "workspaceInvitation"
+  | "workspaceInvitationResponse"
+  | "directMessage";
 
 export interface NotificationItem {
   id: string;
@@ -311,6 +344,16 @@ export interface NotificationItem {
   entityId: string | null;
   createdAt: string;
   creator?: User | null;
+}
+
+export interface MessageThreadSummary {
+  counterpartId: string;
+  counterpart: Pick<User, "id" | "name" | "email" | "avatarUrl"> | null;
+  lastMessage: string;
+  lastMessageAt: string;
+  lastSenderId: string | null;
+  unreadCount: number;
+  workspaceId: string | null;
 }
 
 export interface WorkspaceActivity {

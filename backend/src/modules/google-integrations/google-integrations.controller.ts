@@ -85,17 +85,27 @@ export class GoogleIntegrationsController {
     @Param('eventId') eventId: string,
     @Query() query: GoogleCalendarEventDetailQueryDto,
   ) {
-    return this.googleIntegrationsService.getCalendarEvent(userId, eventId, query);
+    return this.googleIntegrationsService.getCalendarEvent(
+      userId,
+      eventId,
+      query,
+    );
   }
 
   @Patch('calendar/events/:eventId')
-  @ApiOperation({ summary: 'Cập nhật Google Calendar event (title/time/attendee/recurring)' })
+  @ApiOperation({
+    summary: 'Cập nhật Google Calendar event (title/time/attendee/recurring)',
+  })
   updateCalendarEvent(
     @CurrentUser('id') userId: string,
     @Param('eventId') eventId: string,
     @Body() dto: UpdateGoogleCalendarEventDto,
   ) {
-    return this.googleIntegrationsService.updateCalendarEvent(userId, eventId, dto);
+    return this.googleIntegrationsService.updateCalendarEvent(
+      userId,
+      eventId,
+      dto,
+    );
   }
 
   @Patch('calendar/events/:eventId/rsvp')
@@ -105,7 +115,11 @@ export class GoogleIntegrationsController {
     @Param('eventId') eventId: string,
     @Body() dto: UpdateGoogleCalendarEventRsvpDto,
   ) {
-    return this.googleIntegrationsService.updateCalendarEventRsvp(userId, eventId, dto);
+    return this.googleIntegrationsService.updateCalendarEventRsvp(
+      userId,
+      eventId,
+      dto,
+    );
   }
 
   @Get('calendar/events')
@@ -160,7 +174,9 @@ export class GoogleIntegrationsController {
   }
 
   @Patch('calendar/sync/bidirectional')
-  @ApiOperation({ summary: 'Đồng bộ 2 chiều task <-> Google events, có xử lý conflict' })
+  @ApiOperation({
+    summary: 'Đồng bộ 2 chiều task <-> Google events, có xử lý conflict',
+  })
   runBidirectionalSync(
     @CurrentUser('id') userId: string,
     @Query() query: RunBidirectionalSyncQueryDto,

@@ -1,10 +1,6 @@
-import {
-  Injectable,
-  NotFoundException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { Page } from './entities/page.entity';
 import { PageVersion } from './entities/page-version.entity';
@@ -55,19 +51,20 @@ export class PagesService {
       .select('COALESCE(MAX(p.sort_order), -1)', 'max')
       .where('p.workspace_id = :workspaceId', { workspaceId })
       .andWhere(
-        dto.parentId
-          ? 'p.parent_id = :parentId'
-          : 'p.parent_id IS NULL',
+        dto.parentId ? 'p.parent_id = :parentId' : 'p.parent_id IS NULL',
         dto.parentId ? { parentId: dto.parentId } : {},
       )
-      .getRawOne();
+      .getRawOne<{ max: string | number | null }>();
+
+    const maxSortValue = Number(maxSort?.max ?? -1);
+    const nextSortOrder = Number.isFinite(maxSortValue) ? maxSortValue + 1 : 0;
 
     const page = this.pagesRepository.create({
       workspaceId,
       parentId: dto.parentId || null,
       title: dto.title || 'Untitled',
       icon: dto.icon || null,
-      sortOrder: (maxSort?.max ?? -1) + 1,
+      sortOrder: nextSortOrder,
       createdBy: userId,
     });
 
@@ -137,11 +134,7 @@ export class PagesService {
     this.logger.log(`Page soft-deleted: ${id} by ${userId}`);
   }
 
-  async movePage(
-    id: string,
-    dto: MovePageDto,
-    userId: string,
-  ): Promise<Page> {
+  async movePage(id: string, dto: MovePageDto, userId: string): Promise<Page> {
     const page = await this.assertCanEditPage(id, userId);
 
     // Prevent moving page to its own descendant (circular reference)
@@ -356,8 +349,10 @@ export class PagesService {
     // Try to extract text from Tiptap JSON content
     if (block.content) {
       try {
-        const json = JSON.parse(block.content);
-        text = this.extractTextFromTiptap(json);
+        const json: unknown = JSON.parse(block.content);
+        text = this.isRecord(json)
+          ? this.extractTextFromTiptap(json)
+          : block.content;
       } catch {
         text = block.content; // Fallback to raw content
       }
@@ -395,11 +390,18 @@ export class PagesService {
     }
 
     if (Array.isArray(node.content)) {
-      return (node.content as Record<string, unknown>[])
+      return node.content
+        .filter((child): child is Record<string, unknown> =>
+          this.isRecord(child),
+        )
         .map((child) => this.extractTextFromTiptap(child))
         .join('');
     }
 
     return '';
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
   }
 }

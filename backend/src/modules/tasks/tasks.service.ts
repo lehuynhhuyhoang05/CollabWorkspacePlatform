@@ -123,6 +123,10 @@ export class TasksService {
       hydratedTask,
       userId,
     );
+    await this.notificationsService.createTaskOverdueNotification(
+      hydratedTask,
+      userId,
+    );
 
     return hydratedTask;
   }
@@ -137,9 +141,14 @@ export class TasksService {
     const previousDueDate = this.toIsoDate(task.dueDate);
     const previousStatus = task.status;
 
-    const role = await this.workspacesService.getMemberRole(task.workspaceId, userId);
+    const role = await this.workspacesService.getMemberRole(
+      task.workspaceId,
+      userId,
+    );
     if (!role) {
-      throw new ForbiddenException('Bạn không phải thành viên của workspace này');
+      throw new ForbiddenException(
+        'Bạn không phải thành viên của workspace này',
+      );
     }
 
     const isOwnerOrEditor =
@@ -229,6 +238,18 @@ export class TasksService {
     if (dueOrStatusChanged) {
       await this.notificationsService.createDeadlineReminderForTask(
         hydratedTask,
+        userId,
+      );
+      await this.notificationsService.createTaskOverdueNotification(
+        hydratedTask,
+        userId,
+      );
+    }
+
+    if (previousStatus !== hydratedTask.status) {
+      await this.notificationsService.createTaskStatusChangeNotifications(
+        hydratedTask,
+        previousStatus,
         userId,
       );
     }
@@ -354,9 +375,7 @@ export class TasksService {
 
     while (cursorParentId) {
       if (cursorParentId === currentTaskId) {
-        throw new BadRequestException(
-          'Quan hệ parent task bị vòng lặp',
-        );
+        throw new BadRequestException('Quan hệ parent task bị vòng lặp');
       }
 
       const parent = await this.tasksRepository.findOne({

@@ -1,4 +1,8 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import type { UsersService } from '../users/users.service';
@@ -22,6 +26,10 @@ type MockedUsersService = jest.Mocked<
     | 'create'
     | 'updateRefreshToken'
     | 'getRefreshTokenHash'
+    | 'setPasswordResetToken'
+    | 'findByPasswordResetTokenHash'
+    | 'updatePassword'
+    | 'clearPasswordResetToken'
   >
 >;
 
@@ -41,6 +49,10 @@ describe('AuthService', () => {
       create: jest.fn(),
       updateRefreshToken: jest.fn(),
       getRefreshTokenHash: jest.fn(),
+      setPasswordResetToken: jest.fn(),
+      findByPasswordResetTokenHash: jest.fn(),
+      updatePassword: jest.fn(),
+      clearPasswordResetToken: jest.fn(),
     };
 
     jwtService = {
@@ -162,6 +174,8 @@ describe('AuthService', () => {
       name: 'X',
       password: 'hash',
       refreshTokenHash: 'refresh-hash',
+      passwordResetTokenHash: 'reset-hash',
+      passwordResetExpiresAt: new Date('2026-04-10T00:00:00.000Z'),
     } as any);
 
     const me = await service.getMe('u1');
@@ -171,5 +185,41 @@ describe('AuthService', () => {
       email: 'x@example.com',
       name: 'X',
     });
+  });
+
+  it('requestPasswordReset should return generic message for non-existing email', async () => {
+    usersService.findByEmail.mockResolvedValueOnce(null);
+
+    const result = await service.requestPasswordReset('unknown@example.com');
+
+    expect(result.message).toContain('Nếu email tồn tại');
+    expect(usersService.setPasswordResetToken).not.toHaveBeenCalled();
+  });
+
+  it('resetPassword should throw when token is invalid', async () => {
+    usersService.findByPasswordResetTokenHash.mockResolvedValueOnce(null);
+
+    await expect(
+      service.resetPassword('invalid-token', 'StrongP@ssw0rd'),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('resetPassword should update password and clear reset token', async () => {
+    const mockedBcrypt = bcrypt as jest.Mocked<typeof bcrypt>;
+    usersService.findByPasswordResetTokenHash.mockResolvedValueOnce({
+      id: 'u1',
+      email: 'x@example.com',
+    } as any);
+    mockedBcrypt.hash.mockResolvedValueOnce('new-password-hash');
+
+    const result = await service.resetPassword('valid-token', 'StrongP@ssw0rd');
+
+    expect(usersService.updatePassword).toHaveBeenCalledWith(
+      'u1',
+      'new-password-hash',
+    );
+    expect(usersService.clearPasswordResetToken).toHaveBeenCalledWith('u1');
+    expect(usersService.updateRefreshToken).toHaveBeenCalledWith('u1', null);
+    expect(result.message).toContain('Đặt lại mật khẩu thành công');
   });
 });

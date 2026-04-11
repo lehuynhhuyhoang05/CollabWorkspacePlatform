@@ -23,10 +23,7 @@ export class CommentsController {
 
   @Get('blocks/:bid/comments')
   @ApiOperation({ summary: 'Danh sách comments của block' })
-  findAll(
-    @Param('bid') blockId: string,
-    @CurrentUser('id') userId: string,
-  ) {
+  findAll(@Param('bid') blockId: string, @CurrentUser('id') userId: string) {
     return this.commentsService.findAllForBlock(blockId, userId);
   }
 
@@ -52,28 +49,19 @@ export class CommentsController {
 
   @Patch('comments/:id/resolve')
   @ApiOperation({ summary: 'Đánh dấu comment đã xử lý' })
-  resolve(
-    @Param('id') id: string,
-    @CurrentUser('id') userId: string,
-  ) {
+  resolve(@Param('id') id: string, @CurrentUser('id') userId: string) {
     return this.commentsService.resolve(id, userId);
   }
 
   @Patch('comments/:id/reopen')
   @ApiOperation({ summary: 'Mở lại comment' })
-  reopen(
-    @Param('id') id: string,
-    @CurrentUser('id') userId: string,
-  ) {
+  reopen(@Param('id') id: string, @CurrentUser('id') userId: string) {
     return this.commentsService.reopen(id, userId);
   }
 
   @Delete('comments/:id')
   @ApiOperation({ summary: 'Xoá comment (chỉ tác giả)' })
-  remove(
-    @Param('id') id: string,
-    @CurrentUser('id') userId: string,
-  ) {
+  remove(@Param('id') id: string, @CurrentUser('id') userId: string) {
     return this.commentsService.remove(id, userId);
   }
 }

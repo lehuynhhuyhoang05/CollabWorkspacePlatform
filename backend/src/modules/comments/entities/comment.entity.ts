@@ -29,13 +29,23 @@ export class Comment {
   @Column({ type: 'boolean', name: 'is_resolved', default: false })
   isResolved: boolean;
 
-  @Column({ type: 'varchar', length: 36, name: 'resolved_by_user_id', nullable: true })
+  @Column({
+    type: 'varchar',
+    length: 36,
+    name: 'resolved_by_user_id',
+    nullable: true,
+  })
   resolvedByUserId: string | null;
 
   @Column({ type: 'timestamp', name: 'resolved_at', nullable: true })
   resolvedAt: Date | null;
 
-  @Column({ type: 'varchar', length: 36, name: 'reopened_by_user_id', nullable: true })
+  @Column({
+    type: 'varchar',
+    length: 36,
+    name: 'reopened_by_user_id',
+    nullable: true,
+  })
   reopenedByUserId: string | null;
 
   @Column({ type: 'timestamp', name: 'reopened_at', nullable: true })

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type WheelEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { pagesApi } from "../../api/pages.api";
@@ -123,6 +123,10 @@ function parseRecurrenceInput(input: string): string[] {
     .filter(Boolean);
 }
 
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
 function flattenPageTree(nodes: PageTreeNode[], depth = 0): Array<{ id: string; label: string }> {
   const result: Array<{ id: string; label: string }> = [];
 
@@ -202,6 +206,8 @@ export function TasksPage() {
   const [rsvpDraftByEmail, setRsvpDraftByEmail] = useState<Record<string, AttendeeResponseStatus>>({});
   const [updatingRsvpEmail, setUpdatingRsvpEmail] = useState<string | null>(null);
   const [syncConflictStrategy, setSyncConflictStrategy] = useState<ConflictStrategy>("mark");
+  const [calendarZoom, setCalendarZoom] = useState(1);
+  const [isAgendaSummaryOpen, setIsAgendaSummaryOpen] = useState(false);
 
   const statusLabel = (value: TaskStatus) => {
     if (value === "todo") return t("Cần làm", "To do");
@@ -623,6 +629,13 @@ export function TasksPage() {
     [selectedEventId, eventLookupById],
   );
 
+  const calendarZoomPercent = Math.round(calendarZoom * 100);
+
+  const calendarGridStyle = useMemo(
+    () => ({ "--calendar-zoom": String(calendarZoom) } as CSSProperties),
+    [calendarZoom],
+  );
+
   useEffect(() => {
     if (!selectedEvent) {
       setEventEditorSummary("");
@@ -687,6 +700,25 @@ export function TasksPage() {
     );
   }, [selectedEvent]);
 
+  useEffect(() => {
+    if (!selectedEventId) return;
+
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSelectedEventId(null);
+      }
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onEscape);
+
+    return () => {
+      window.removeEventListener("keydown", onEscape);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [selectedEventId]);
+
   const calendarDays = useMemo(
     () =>
       googleCalendarViewMode === "week"
@@ -749,6 +781,26 @@ export function TasksPage() {
     [upcomingEvents],
   );
 
+  const tasksByGoogleEventId = useMemo(() => {
+    const map = new Map<string, Task[]>();
+
+    tasks.forEach((task) => {
+      if (!task.googleEventId) return;
+      const current = map.get(task.googleEventId) ?? [];
+      current.push(task);
+      map.set(task.googleEventId, current);
+    });
+
+    return map;
+  }, [tasks]);
+
+  const selectedEventLinkedTasks = useMemo(
+    () => (selectedEvent ? tasksByGoogleEventId.get(selectedEvent.eventId) ?? [] : []),
+    [selectedEvent, tasksByGoogleEventId],
+  );
+
+  const selectedEventPrimaryTask = selectedEventLinkedTasks[0] || null;
+
   const syncedTasksCount = useMemo(
     () => tasks.filter((task) => Boolean(task.googleEventId)).length,
     [tasks],
@@ -762,6 +814,50 @@ export function TasksPage() {
       })),
     [tasks],
   );
+
+  const taskAssignments = useMemo(() => {
+    if (!isWorkspaceScope) {
+      return [];
+    }
+
+    const summaries = new Map<
+      string,
+      {
+        key: string;
+        label: string;
+        total: number;
+        todo: number;
+        inProgress: number;
+        blocked: number;
+        done: number;
+      }
+    >();
+
+    tasks.forEach((task) => {
+      const key = task.assigneeId || '__unassigned__';
+      const label = task.assignee?.name || t('Chưa gán', 'Unassigned');
+
+      const current = summaries.get(key) || {
+        key,
+        label,
+        total: 0,
+        todo: 0,
+        inProgress: 0,
+        blocked: 0,
+        done: 0,
+      };
+
+      current.total += 1;
+      if (task.status === 'todo') current.todo += 1;
+      if (task.status === 'inProgress') current.inProgress += 1;
+      if (task.status === 'blocked') current.blocked += 1;
+      if (task.status === 'done') current.done += 1;
+
+      summaries.set(key, current);
+    });
+
+    return Array.from(summaries.values()).sort((a, b) => b.total - a.total);
+  }, [isWorkspaceScope, tasks, t]);
 
   const calendarGroups = useMemo(() => {
     const grouped = new Map<string, Task[]>();
@@ -806,6 +902,20 @@ export function TasksPage() {
       next.setMonth(next.getMonth() + (direction === "next" ? 1 : -1));
       return next;
     });
+  };
+
+  const adjustCalendarZoom = (delta: number) => {
+    setCalendarZoom((prev) => {
+      const next = clampNumber(prev + delta, 0.75, 1.8);
+      return Number(next.toFixed(2));
+    });
+  };
+
+  const handleCalendarWheelZoom = (event: WheelEvent<HTMLDivElement>) => {
+    if (!event.ctrlKey && !event.metaKey) return;
+
+    event.preventDefault();
+    adjustCalendarZoom(event.deltaY < 0 ? 0.08 : -0.08);
   };
 
   const openEventEditor = (event: GoogleCalendarEventItem) => {
@@ -1262,9 +1372,45 @@ export function TasksPage() {
         </div>
       </Card>
 
-      <Card>
+      {isWorkspaceScope ? (
+        <Card className="task-assignment-card">
+          <div className="workspace-list-head">
+            <h2 className="card-title">{t('Task được giao theo người', 'Assignments by member')}</h2>
+            <span className="task-meta-pill">{taskAssignments.length} {t('nhóm', 'groups')}</span>
+          </div>
+
+          <p className="muted-text">
+            {t(
+              'Assignee có thể tự cập nhật trạng thái/priority/hạn chót task của mình; thay đổi sẽ phản ánh ngay ở cả danh sách workspace và My Tasks.',
+              'Assignees can update status/priority/due date for their own tasks; changes are reflected immediately in both workspace and My Tasks views.',
+            )}
+          </p>
+
+          <ul className="task-assignment-list">
+            {taskAssignments.map((assignment) => (
+              <li key={assignment.key}>
+                <div>
+                  <p className="task-title">{assignment.label}</p>
+                  <p className="muted-text">
+                    {t('Tổng', 'Total')}: {assignment.total}
+                  </p>
+                </div>
+                <div className="task-tag-row">
+                  <span className="task-meta-pill">todo: {assignment.todo}</span>
+                  <span className="task-meta-pill">doing: {assignment.inProgress}</span>
+                  <span className="task-meta-pill">blocked: {assignment.blocked}</span>
+                  <span className="task-meta-pill">done: {assignment.done}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
+
+      <Card className="google-hub-card">
         <div className="google-hub-head">
-          <div>
+          <div className="google-hub-title">
+            <p className="google-hub-chip">{t("Lịch & cuộc họp", "Calendar & Meetings")}</p>
             <h2 className="card-title">{t("Google Agenda & Meetings", "Google Agenda & Meetings")}</h2>
             <p className="muted-text">
               {t(
@@ -1274,16 +1420,20 @@ export function TasksPage() {
             </p>
           </div>
 
-          <div className="google-hub-kpis">
-            <span className="task-meta-pill">
-              {t("Sự kiện trong khung lịch", "Events in current range")}: {upcomingEvents.length}
-            </span>
-            <span className="task-meta-pill">
-              {t("Có Meet", "With Meet")}: {meetingEnabledEventsCount}
-            </span>
-            <span className="task-meta-pill">
-              {t("Task đã sync", "Synced tasks")}: {syncedTasksCount}
-            </span>
+          <div className="google-hub-kpis" role="list" aria-label={t("Tổng quan đồng bộ", "Sync overview")}
+          >
+            <article className="google-kpi" role="listitem">
+              <p className="google-kpi-label">{t("Sự kiện trong khung lịch", "Events in current range")}</p>
+              <strong className="google-kpi-value">{upcomingEvents.length}</strong>
+            </article>
+            <article className="google-kpi" role="listitem">
+              <p className="google-kpi-label">{t("Có Meet", "With Meet")}</p>
+              <strong className="google-kpi-value">{meetingEnabledEventsCount}</strong>
+            </article>
+            <article className="google-kpi" role="listitem">
+              <p className="google-kpi-label">{t("Task đã sync", "Synced tasks")}</p>
+              <strong className="google-kpi-value">{syncedTasksCount}</strong>
+            </article>
           </div>
         </div>
 
@@ -1303,7 +1453,15 @@ export function TasksPage() {
           <>
             <div className="google-hub-grid">
               <section className="google-meeting-panel">
-                <h3 className="card-subtitle">{t("Tạo cuộc họp nhanh", "Quick Meeting")}</h3>
+                <header className="google-panel-head">
+                  <h3 className="card-subtitle">{t("Tạo cuộc họp nhanh", "Quick Meeting")}</h3>
+                  <p className="muted-text">
+                    {t(
+                      "Điền thông tin cốt lõi để tạo lịch họp và Meet trong 1 bước.",
+                      "Fill only key fields to schedule a meeting and Meet in one step.",
+                    )}
+                  </p>
+                </header>
 
                 {!isWorkspaceScope ? (
                   <label className="field-root">
@@ -1389,8 +1547,9 @@ export function TasksPage() {
                   ))}
                 </div>
 
-                <div className="inline-actions">
+                <div className="inline-actions meeting-cta-row">
                   <Button
+                    className="meeting-primary-btn"
                     loading={createQuickMeetingMutation.isPending}
                     disabled={!canCreateQuickMeeting}
                     onClick={async () => {
@@ -1405,7 +1564,7 @@ export function TasksPage() {
                     href="https://calendar.google.com/calendar/u/0/r/week"
                     target="_blank"
                     rel="noreferrer"
-                    className="link-button"
+                    className="link-button meeting-secondary-link"
                   >
                     {t("Mở Google Calendar", "Open Google Calendar")}
                   </a>
@@ -1456,6 +1615,16 @@ export function TasksPage() {
               </section>
 
               <section className="google-agenda-panel">
+                <header className="google-panel-head">
+                  <h3 className="card-subtitle">{t("Lịch Google", "Google Agenda")}</h3>
+                  <p className="muted-text">
+                    {t(
+                      "Kéo-thả event để dời ngày, bấm event để mở editor và cập nhật RSVP.",
+                      "Drag events to move dates, then open event editor to update details and RSVP.",
+                    )}
+                  </p>
+                </header>
+
                 <div className="google-agenda-toolbar">
                   <Input
                     label={t("Tìm trong agenda", "Search agenda")}
@@ -1512,6 +1681,47 @@ export function TasksPage() {
                   </div>
                 </div>
 
+                <div className="calendar-zoom-controls" role="group" aria-label={t("Điều chỉnh độ phóng lịch", "Adjust calendar zoom")}
+                >
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => adjustCalendarZoom(-0.1)}
+                    disabled={calendarZoom <= 0.75}
+                  >
+                    {t("Thu nhỏ", "Zoom out")}
+                  </Button>
+                  <input
+                    type="range"
+                    min={75}
+                    max={180}
+                    step={5}
+                    value={calendarZoomPercent}
+                    onChange={(event) => setCalendarZoom(Number(event.target.value) / 100)}
+                    aria-label={t("Mức zoom lịch", "Calendar zoom level")}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => adjustCalendarZoom(0.1)}
+                    disabled={calendarZoom >= 1.8}
+                  >
+                    {t("Phóng to", "Zoom in")}
+                  </Button>
+                  <button
+                    type="button"
+                    className="calendar-zoom-reset"
+                    onClick={() => setCalendarZoom(1)}
+                  >
+                    {calendarZoomPercent}%
+                  </button>
+                  <span className="muted-text calendar-zoom-hint">
+                    {t("Mẹo: giữ Ctrl rồi lăn chuột để zoom nhanh", "Tip: hold Ctrl and wheel to zoom quickly")}
+                  </span>
+                </div>
+
                 {upcomingEventsQuery.isPending ? (
                   <p className="muted-text">{t("Đang tải agenda từ Google...", "Loading agenda from Google...")}</p>
                 ) : null}
@@ -1526,143 +1736,184 @@ export function TasksPage() {
                 ) : null}
 
                 {upcomingEvents.length > 0 ? (
-                  <div
-                    className={
-                      googleCalendarViewMode === "week"
-                        ? "google-calendar-grid week"
-                        : "google-calendar-grid month"
-                    }
-                  >
-                    {calendarDays.map((day) => {
-                      const dayKey = toLocalDateKey(day);
-                      const dayEvents = googleEventsByDateKey.get(dayKey) ?? [];
-                      const isToday = dayKey === toLocalDateKey(new Date());
-                      const isCurrentMonth =
-                        day.getMonth() === googleCalendarAnchor.getMonth() &&
-                        day.getFullYear() === googleCalendarAnchor.getFullYear();
+                  <div className="google-calendar-stage" onWheel={handleCalendarWheelZoom}>
+                    <div
+                      className={
+                        googleCalendarViewMode === "week"
+                          ? "google-calendar-grid week"
+                          : "google-calendar-grid month"
+                      }
+                      style={calendarGridStyle}
+                    >
+                      {calendarDays.map((day) => {
+                        const dayKey = toLocalDateKey(day);
+                        const dayEvents = googleEventsByDateKey.get(dayKey) ?? [];
+                        const isToday = dayKey === toLocalDateKey(new Date());
+                        const isCurrentMonth =
+                          day.getMonth() === googleCalendarAnchor.getMonth() &&
+                          day.getFullYear() === googleCalendarAnchor.getFullYear();
 
-                      return (
-                        <div
-                          key={dayKey}
-                          className={
-                            `google-calendar-day${isToday ? " is-today" : ""}${
-                              !isCurrentMonth && googleCalendarViewMode === "month"
-                                ? " is-outside"
-                                : ""
-                            }`
-                          }
-                          onDragOver={(event) => {
-                            event.preventDefault();
-                            event.dataTransfer.dropEffect = "move";
-                          }}
-                          onDrop={async (event) => {
-                            event.preventDefault();
-                            const droppedEventId =
-                              event.dataTransfer.getData("text/google-event-id") ||
-                              draggedEventId;
-                            if (!droppedEventId) return;
+                        return (
+                          <div
+                            key={dayKey}
+                            className={
+                              `google-calendar-day${isToday ? " is-today" : ""}${
+                                !isCurrentMonth && googleCalendarViewMode === "month"
+                                  ? " is-outside"
+                                  : ""
+                              }`
+                            }
+                            onDragOver={(event) => {
+                              event.preventDefault();
+                              event.dataTransfer.dropEffect = "move";
+                            }}
+                            onDrop={async (event) => {
+                              event.preventDefault();
+                              const droppedEventId =
+                                event.dataTransfer.getData("text/google-event-id") ||
+                                draggedEventId;
+                              if (!droppedEventId) return;
 
-                            const droppedEvent = eventLookupById[droppedEventId];
-                            if (!droppedEvent) return;
-                            await rescheduleEventToDay(droppedEvent, day);
-                            setDraggedEventId(null);
-                          }}
-                        >
-                          <div className="google-calendar-day-head">
-                            <strong>{day.toLocaleDateString(undefined, { weekday: "short" })}</strong>
-                            <span>{day.getDate()}</span>
+                              const droppedEvent = eventLookupById[droppedEventId];
+                              if (!droppedEvent) return;
+                              await rescheduleEventToDay(droppedEvent, day);
+                              setDraggedEventId(null);
+                            }}
+                          >
+                            <div className="google-calendar-day-head">
+                              <strong>{day.toLocaleDateString(undefined, { weekday: "short" })}</strong>
+                              <span>{day.getDate()}</span>
+                            </div>
+                            <div className="google-calendar-day-body">
+                              {dayEvents.length === 0 ? (
+                                <span className="muted-text">{t("Trống", "Empty")}</span>
+                              ) : (
+                                dayEvents.map((event) => {
+                                  const timeText = event.isAllDay
+                                    ? t("Cả ngày", "All day")
+                                    : (event.startAt
+                                        ? new Date(event.startAt).toLocaleTimeString([], {
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                          })
+                                        : "--:--");
+
+                                  return (
+                                    <button
+                                      key={event.eventId}
+                                      type="button"
+                                      draggable
+                                      className={
+                                        selectedEventId === event.eventId
+                                          ? "google-event-chip active"
+                                          : "google-event-chip"
+                                      }
+                                      onDragStart={(dragEvent) => {
+                                        dragEvent.dataTransfer.setData("text/google-event-id", event.eventId);
+                                        dragEvent.dataTransfer.effectAllowed = "move";
+                                        setDraggedEventId(event.eventId);
+                                      }}
+                                      onDragEnd={() => setDraggedEventId(null)}
+                                      onClick={() => openEventEditor(event)}
+                                    >
+                                      <span className="google-event-chip-title">{event.summary}</span>
+                                      <span className="google-event-chip-time">{timeText}</span>
+                                      {reschedulingEventId === event.eventId ? (
+                                        <span className="google-event-chip-state">{t("Đang dời...", "Moving...")}</span>
+                                      ) : null}
+                                    </button>
+                                  );
+                                })
+                              )}
+                            </div>
                           </div>
-                          <div className="google-calendar-day-body">
-                            {dayEvents.length === 0 ? (
-                              <span className="muted-text">{t("Trống", "Empty")}</span>
-                            ) : (
-                              dayEvents.map((event) => {
-                                const timeText = event.isAllDay
-                                  ? t("Cả ngày", "All day")
-                                  : (event.startAt
-                                      ? new Date(event.startAt).toLocaleTimeString([], {
-                                          hour: "2-digit",
-                                          minute: "2-digit",
-                                        })
-                                      : "--:--");
-
-                                return (
-                                  <button
-                                    key={event.eventId}
-                                    type="button"
-                                    draggable
-                                    className={
-                                      selectedEventId === event.eventId
-                                        ? "google-event-chip active"
-                                        : "google-event-chip"
-                                    }
-                                    onDragStart={(dragEvent) => {
-                                      dragEvent.dataTransfer.setData("text/google-event-id", event.eventId);
-                                      dragEvent.dataTransfer.effectAllowed = "move";
-                                      setDraggedEventId(event.eventId);
-                                    }}
-                                    onDragEnd={() => setDraggedEventId(null)}
-                                    onClick={() => openEventEditor(event)}
-                                  >
-                                    <span className="google-event-chip-title">{event.summary}</span>
-                                    <span className="google-event-chip-time">{timeText}</span>
-                                    {reschedulingEventId === event.eventId ? (
-                                      <span className="google-event-chip-state">{t("Đang dời...", "Moving...")}</span>
-                                    ) : null}
-                                  </button>
-                                );
-                              })
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
                 ) : null}
 
                 {upcomingEvents.length > 0 ? (
-                  <ul className="google-agenda-list compact">
-                    {upcomingEvents.slice(0, 8).map((event) => {
-                      const statusClass =
-                        event.status === "cancelled"
-                          ? "status-failed"
-                          : event.status === "tentative"
-                            ? "status-processing"
-                            : "status-success";
+                  <section className="google-agenda-secondary">
+                    <div className="integration-list-row">
+                      <p className="card-subtitle">
+                        {t("Danh sách agenda (phụ)", "Agenda list (secondary)")}
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setIsAgendaSummaryOpen((prev) => !prev)}
+                      >
+                        {isAgendaSummaryOpen
+                          ? t("Thu gọn", "Collapse")
+                          : t("Mở danh sách", "Open list")}
+                      </Button>
+                    </div>
 
-                      const timeLabel = event.isAllDay
-                        ? t("Cả ngày", "All day")
-                        : `${formatDateTime(event.startAt)}${event.endAt ? ` → ${formatDateTime(event.endAt)}` : ""}`;
+                    {isAgendaSummaryOpen ? (
+                      <ul className="google-agenda-list compact mini">
+                        {upcomingEvents.slice(0, 4).map((event) => {
+                          const statusClass =
+                            event.status === "cancelled"
+                              ? "status-failed"
+                              : event.status === "tentative"
+                                ? "status-processing"
+                                : "status-success";
 
-                      return (
-                        <li key={event.eventId}>
-                          <div className="integration-list-row">
-                            <button
-                              type="button"
-                              className="text-link-btn"
-                              onClick={() => openEventEditor(event)}
-                            >
-                              {event.summary}
-                            </button>
-                            <span className={`google-status-pill ${statusClass}`}>
-                              {event.status || t("confirmed", "confirmed")}
-                            </span>
-                          </div>
-                          <p className="muted-text">{timeLabel}</p>
-                          <p className="muted-text">
-                            {t("Attendee", "Attendee")}: {event.attendees.length}
-                            {event.recurrence.length > 0 ? ` • ${t("Recurring", "Recurring")}` : ""}
-                          </p>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                          const timeLabel = event.isAllDay
+                            ? t("Cả ngày", "All day")
+                            : `${formatDateTime(event.startAt)}${event.endAt ? ` -> ${formatDateTime(event.endAt)}` : ""}`;
+
+                          return (
+                            <li key={event.eventId}>
+                              <div className="integration-list-row">
+                                <button
+                                  type="button"
+                                  className="text-link-btn"
+                                  onClick={() => openEventEditor(event)}
+                                >
+                                  {event.summary}
+                                </button>
+                                <span className={`google-status-pill ${statusClass}`}>
+                                  {event.status || t("confirmed", "confirmed")}
+                                </span>
+                              </div>
+                              <p className="muted-text">{timeLabel}</p>
+                              <p className="muted-text">
+                                {t("Attendee", "Attendee")}: {event.attendees.length}
+                                {event.recurrence.length > 0 ? ` • ${t("Recurring", "Recurring")}` : ""}
+                              </p>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : (
+                      <p className="muted-text">
+                        {t(
+                          "Danh sách phía dưới chỉ là phần phụ. Ưu tiên chính là lịch ở trên để thao tác kéo-thả và xem theo ngày/tuần.",
+                          "The list below is secondary. The main focus is the calendar above for day/week planning and drag-drop.",
+                        )}
+                      </p>
+                    )}
+                  </section>
                 ) : null}
               </section>
             </div>
 
             {selectedEvent ? (
-              <section className="google-event-editor">
+              <div
+                className="google-event-modal-backdrop"
+                onClick={() => setSelectedEventId(null)}
+                role="presentation"
+              >
+              <section
+                className="google-event-editor google-event-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-label={t("Chi tiết sự kiện", "Event details")}
+                onClick={(event) => event.stopPropagation()}
+              >
                 <div className="integration-list-row">
                   <h3 className="card-subtitle">{t("Event Editor", "Event Editor")}</h3>
                   <div className="inline-actions">
@@ -1695,6 +1946,52 @@ export function TasksPage() {
                     </Button>
                   </div>
                 </div>
+
+                <ul className="google-event-quick-meta" role="list">
+                  <li>
+                    <span>{t("Thời gian", "When")}</span>
+                    <strong>
+                      {selectedEvent.isAllDay
+                        ? t("Cả ngày", "All day")
+                        : `${formatDateTime(selectedEvent.startAt)}${selectedEvent.endAt ? ` -> ${formatDateTime(selectedEvent.endAt)}` : ""}`}
+                    </strong>
+                  </li>
+                  <li>
+                    <span>{t("Trạng thái", "Status")}</span>
+                    <strong>{selectedEvent.status || t("confirmed", "confirmed")}</strong>
+                  </li>
+                  <li>
+                    <span>{t("Attendees", "Attendees")}</span>
+                    <strong>{selectedEvent.attendees.length}</strong>
+                  </li>
+                  <li>
+                    <span>{t("Recurring", "Recurring")}</span>
+                    <strong>{selectedEvent.recurrence.length > 0 ? t("Có", "Yes") : t("Không", "No")}</strong>
+                  </li>
+                  <li>
+                    <span>{t("Task liên kết", "Linked task")}</span>
+                    <strong>
+                      {selectedEventPrimaryTask ? (
+                        <Link
+                          to={`/workspaces/${selectedEventPrimaryTask.workspaceId}/tasks`}
+                          className="google-event-task-link"
+                        >
+                          {selectedEventPrimaryTask.title}
+                        </Link>
+                      ) : (
+                        t("Không có", "None")
+                      )}
+                    </strong>
+                  </li>
+                  <li>
+                    <span>{t("Người phụ trách", "Assignee")}</span>
+                    <strong>
+                      {selectedEventPrimaryTask
+                        ? selectedEventPrimaryTask.assignee?.name || t("Chưa gán", "Unassigned")
+                        : t("Không có", "None")}
+                    </strong>
+                  </li>
+                </ul>
 
                 <div className="google-event-editor-grid">
                   <Input
@@ -1880,6 +2177,7 @@ export function TasksPage() {
                   </span>
                 </div>
               </section>
+              </div>
             ) : null}
           </>
         )}

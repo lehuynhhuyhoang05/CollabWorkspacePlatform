@@ -52,7 +52,10 @@ export class GoogleIntegrationAuditLog {
   @JoinColumn({ name: 'workspace_id' })
   workspace: Workspace | null;
 
-  @ManyToOne(() => GoogleCalendarSyncJob, { nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => GoogleCalendarSyncJob, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
   @JoinColumn({ name: 'job_id' })
   job: GoogleCalendarSyncJob | null;
 

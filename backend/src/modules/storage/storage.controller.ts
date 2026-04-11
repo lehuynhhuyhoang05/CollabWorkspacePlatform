@@ -9,11 +9,24 @@ import {
   Inject,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiConsumes,
+  ApiBody,
+} from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { IStorageService } from './storage.interface';
+
+interface UploadedStorageFile {
+  size: number;
+  mimetype: string;
+  originalname: string;
+  buffer: Buffer;
+}
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_MIME_TYPES = [
@@ -47,7 +60,7 @@ export class StorageController {
     },
   })
   async upload(
-    @UploadedFile() file: any, // Express.Multer.File
+    @UploadedFile() file: UploadedStorageFile | undefined,
     @CurrentUser('id') userId: string,
   ) {
     if (!file) {
@@ -78,10 +91,7 @@ export class StorageController {
 
   @Delete(':key')
   @ApiOperation({ summary: 'Xoá file (chỉ owner)' })
-  async remove(
-    @Param('key') key: string,
-    @CurrentUser('id') userId: string,
-  ) {
+  async remove(@Param('key') key: string, @CurrentUser('id') userId: string) {
     if (!key.startsWith(`${userId}/`)) {
       throw new BadRequestException('Bạn chỉ có thể xoá file của chính mình');
     }

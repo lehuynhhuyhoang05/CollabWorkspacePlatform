@@ -7,9 +7,7 @@ import {
   TableIndex,
 } from 'typeorm';
 
-export class AddNotificationsActivityAndTaskRelations1774179000000
-  implements MigrationInterface
-{
+export class AddNotificationsActivityAndTaskRelations1774179000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     const tasksTable = await queryRunner.getTable('tasks');
 
@@ -367,8 +365,7 @@ export class AddNotificationsActivityAndTaskRelations1774179000000
 
       const parentTaskFk = tasksTable.foreignKeys.find(
         (fk) =>
-          fk.columnNames.length === 1 &&
-          fk.columnNames[0] === 'parent_task_id',
+          fk.columnNames.length === 1 && fk.columnNames[0] === 'parent_task_id',
       );
       if (parentTaskFk) {
         await queryRunner.dropForeignKey('tasks', parentTaskFk);

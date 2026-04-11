@@ -116,10 +116,11 @@ describe('CommentsService RBAC', () => {
 
     const result = await service.resolve('c1', 'u-editor');
 
-    expect(workspacesService.assertRole).toHaveBeenCalledWith('w1', 'u-editor', [
-      WorkspaceRole.OWNER,
-      WorkspaceRole.EDITOR,
-    ]);
+    expect(workspacesService.assertRole).toHaveBeenCalledWith(
+      'w1',
+      'u-editor',
+      [WorkspaceRole.OWNER, WorkspaceRole.EDITOR],
+    );
     expect(commentsRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({
         isResolved: true,

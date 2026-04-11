@@ -7,6 +7,8 @@ import { WorkspaceActivity } from './entities/workspace-activity.entity';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity';
 import { Task } from '../tasks/entities/task.entity';
 import { WorkspacesModule } from '../workspaces/workspaces.module';
+import { User } from '../users/entities/user.entity';
+import { NotificationsScheduler } from './notifications.scheduler';
 
 @Module({
   imports: [
@@ -15,11 +17,12 @@ import { WorkspacesModule } from '../workspaces/workspaces.module';
       WorkspaceActivity,
       WorkspaceMember,
       Task,
+      User,
     ]),
     WorkspacesModule,
   ],
   controllers: [NotificationsController],
-  providers: [NotificationsService],
+  providers: [NotificationsService, NotificationsScheduler],
   exports: [NotificationsService],
 })
 export class NotificationsModule {}

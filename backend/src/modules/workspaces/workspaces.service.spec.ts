@@ -15,6 +15,8 @@ describe('WorkspacesService', () => {
   let service: WorkspacesService;
   let workspacesRepository: any;
   let membersRepository: any;
+  let invitationsRepository: any;
+  let notificationsRepository: any;
   let usersService: jest.Mocked<Pick<UsersService, 'findByEmail'>>;
 
   beforeEach(() => {
@@ -34,6 +36,20 @@ describe('WorkspacesService', () => {
       delete: jest.fn(),
     };
 
+    invitationsRepository = {
+      create: jest.fn((data) => data),
+      save: jest.fn(),
+      findOne: jest.fn(),
+      find: jest.fn(),
+    };
+
+    notificationsRepository = {
+      create: jest.fn((data) => data),
+      save: jest.fn(),
+      findOne: jest.fn(),
+      find: jest.fn(),
+    };
+
     usersService = {
       findByEmail: jest.fn(),
     };
@@ -41,6 +57,8 @@ describe('WorkspacesService', () => {
     service = new WorkspacesService(
       workspacesRepository,
       membersRepository,
+      invitationsRepository,
+      notificationsRepository,
       usersService as unknown as UsersService,
     );
   });
@@ -94,6 +112,7 @@ describe('WorkspacesService', () => {
   it('inviteMember should block editor from assigning owner role', async () => {
     jest.spyOn(service, 'assertRole').mockResolvedValueOnce();
     usersService.findByEmail.mockResolvedValueOnce({ id: 'u2' } as any);
+    invitationsRepository.findOne.mockResolvedValueOnce(null);
     membersRepository.findOne
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({
@@ -104,7 +123,12 @@ describe('WorkspacesService', () => {
       });
 
     await expect(
-      service.inviteMember('w1', 'u2@example.com', WorkspaceRole.OWNER, 'u-editor'),
+      service.inviteMember(
+        'w1',
+        'u2@example.com',
+        WorkspaceRole.OWNER,
+        'u-editor',
+      ),
     ).rejects.toThrow(ForbiddenException);
   });
 

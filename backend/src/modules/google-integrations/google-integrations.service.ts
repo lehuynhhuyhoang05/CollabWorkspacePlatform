@@ -15,7 +15,10 @@ import {
 } from './entities/google-calendar-sync-job.entity';
 import { GoogleIntegrationAuditLog } from './entities/google-integration-audit-log.entity';
 import { Task } from '../tasks/entities/task.entity';
-import { WorkspaceMember, WorkspaceRole } from '../workspaces/entities/workspace-member.entity';
+import {
+  WorkspaceMember,
+  WorkspaceRole,
+} from '../workspaces/entities/workspace-member.entity';
 import { WorkspacesService } from '../workspaces/workspaces.service';
 import {
   CreateGoogleCalendarEventDto,
@@ -119,7 +122,7 @@ export interface GoogleCalendarEventListItem {
   calendarId: string;
 }
 
-export interface GoogleCalendarEventDetail extends GoogleCalendarEventListItem {}
+export type GoogleCalendarEventDetail = GoogleCalendarEventListItem;
 
 export interface BidirectionalSyncSummary {
   scanned: number;
@@ -148,7 +151,10 @@ export class GoogleIntegrationsService {
     private readonly configService: ConfigService,
   ) {}
 
-  getOauthUrl(userId: string, redirectUri?: string): {
+  getOauthUrl(
+    userId: string,
+    redirectUri?: string,
+  ): {
     url: string;
     redirectUri: string;
     scopes: string[];
@@ -349,10 +355,10 @@ export class GoogleIntegrationsService {
       await this.workspacesService.assertMember(dto.workspaceId, userId);
     }
 
-    const workspaceId = taskContext?.task.workspaceId || dto.workspaceId || null;
+    const workspaceId =
+      taskContext?.task.workspaceId || dto.workspaceId || null;
 
-    const summary =
-      dto.summary?.trim() || taskContext?.task.title || null;
+    const summary = dto.summary?.trim() || taskContext?.task.title || null;
 
     if (!summary) {
       throw new BadRequestException('Thiếu summary cho calendar event');
@@ -374,15 +380,15 @@ export class GoogleIntegrationsService {
     }
 
     const startDate =
-      dto.startDate || this.deriveTaskStartDate(taskContext?.task.dueDate || null);
+      dto.startDate ||
+      this.deriveTaskStartDate(taskContext?.task.dueDate || null);
 
     if (allDay && !startDate) {
-      throw new BadRequestException(
-        'Thiếu startDate cho all-day event',
-      );
+      throw new BadRequestException('Thiếu startDate cho all-day event');
     }
 
-    const endAt = !allDay && startAt ? dto.endAt || this.deriveDefaultEndAt(startAt) : null;
+    const endAt =
+      !allDay && startAt ? dto.endAt || this.deriveDefaultEndAt(startAt) : null;
     const endDate = allDay
       ? dto.endDate || this.deriveDefaultAllDayEndDate(startDate!)
       : null;
@@ -438,8 +444,7 @@ export class GoogleIntegrationsService {
     const endpoint =
       `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
         calendarId,
-      )}/events` +
-      (wantsMeet ? '?conferenceDataVersion=1' : '');
+      )}/events` + (wantsMeet ? '?conferenceDataVersion=1' : '');
 
     const createdEvent = await this.callGoogleApiWithRefresh(
       account,
@@ -469,7 +474,9 @@ export class GoogleIntegrationsService {
     if (taskContext?.task) {
       taskContext.task.googleEventId = event.id;
       taskContext.task.googleCalendarId = calendarId;
-      taskContext.task.googleMeetUrl = wantsMeet ? meetUrl : taskContext.task.googleMeetUrl;
+      taskContext.task.googleMeetUrl = wantsMeet
+        ? meetUrl
+        : taskContext.task.googleMeetUrl;
       taskContext.task.googleEventEtag = event.etag || null;
       taskContext.task.googleEventUpdatedAt = this.parseGoogleDateOrNull(
         event.updated,
@@ -552,10 +559,9 @@ export class GoogleIntegrationsService {
       params.set('q', query.q.trim());
     }
 
-    const endpoint =
-      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
-        calendarId,
-      )}/events?${params.toString()}`;
+    const endpoint = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
+      calendarId,
+    )}/events?${params.toString()}`;
 
     const rawResult = await this.callGoogleApiWithRefresh(
       account,
@@ -572,8 +578,7 @@ export class GoogleIntegrationsService {
       .map((event) => {
         const startAt = event.start?.dateTime || event.start?.date || null;
         const endAt = event.end?.dateTime || event.end?.date || null;
-        const isAllDay =
-          !event.start?.dateTime && Boolean(event.start?.date);
+        const isAllDay = !event.start?.dateTime && Boolean(event.start?.date);
 
         const meetUrl =
           event.hangoutLink ||
@@ -680,7 +685,11 @@ export class GoogleIntegrationsService {
       },
     )) as GoogleCalendarEventResponse;
 
-    if (dto.expectedEtag && currentEvent.etag && dto.expectedEtag !== currentEvent.etag) {
+    if (
+      dto.expectedEtag &&
+      currentEvent.etag &&
+      dto.expectedEtag !== currentEvent.etag
+    ) {
       throw new BadRequestException(
         'Event đã thay đổi trên Google. Vui lòng tải lại trước khi cập nhật.',
       );
@@ -736,7 +745,9 @@ export class GoogleIntegrationsService {
         timeZone: dto.timezone || 'UTC',
       };
       payload.end = {
-        dateTime: new Date(endAt || this.deriveDefaultEndAt(startAt)).toISOString(),
+        dateTime: new Date(
+          endAt || this.deriveDefaultEndAt(startAt),
+        ).toISOString(),
         timeZone: dto.timezone || 'UTC',
       };
     }
@@ -842,7 +853,11 @@ export class GoogleIntegrationsService {
       },
     )) as GoogleCalendarEventResponse;
 
-    if (dto.expectedEtag && currentEvent.etag && dto.expectedEtag !== currentEvent.etag) {
+    if (
+      dto.expectedEtag &&
+      currentEvent.etag &&
+      dto.expectedEtag !== currentEvent.etag
+    ) {
       throw new BadRequestException(
         'Event đã thay đổi trên Google. Vui lòng tải lại trước khi cập nhật RSVP.',
       );
@@ -851,7 +866,8 @@ export class GoogleIntegrationsService {
     const attendees = [...(currentEvent.attendees || [])];
     const attendeeIndex = attendees.findIndex(
       (attendee) =>
-        (attendee.email || '').toLowerCase() === dto.attendeeEmail.toLowerCase(),
+        (attendee.email || '').toLowerCase() ===
+        dto.attendeeEmail.toLowerCase(),
     );
 
     if (attendeeIndex >= 0) {
@@ -1266,11 +1282,16 @@ export class GoogleIntegrationsService {
         message,
       });
 
-      return canRetry ? GoogleSyncJobStatus.RETRYING : GoogleSyncJobStatus.FAILED;
+      return canRetry
+        ? GoogleSyncJobStatus.RETRYING
+        : GoogleSyncJobStatus.FAILED;
     }
   }
 
-  private async loadTaskContextForUser(taskId: string, userId: string): Promise<{
+  private async loadTaskContextForUser(
+    taskId: string,
+    userId: string,
+  ): Promise<{
     task: Task;
     role: WorkspaceRole;
   }> {
@@ -1283,7 +1304,10 @@ export class GoogleIntegrationsService {
       throw new NotFoundException('Task không tồn tại');
     }
 
-    const role = await this.workspacesService.getMemberRole(task.workspaceId, userId);
+    const role = await this.workspacesService.getMemberRole(
+      task.workspaceId,
+      userId,
+    );
     if (!role) {
       throw new ForbiddenException('Bạn không thuộc workspace của task này');
     }
@@ -1510,25 +1534,42 @@ export class GoogleIntegrationsService {
   }
 
   private nextRetryAt(attempt: number): Date {
-    const baseMs = this.configService.get<number>('GOOGLE_SYNC_RETRY_BASE_MS', 300000);
+    const baseMs = this.configService.get<number>(
+      'GOOGLE_SYNC_RETRY_BASE_MS',
+      300000,
+    );
     const maxMs = 6 * 60 * 60 * 1000;
-    const delay = Math.min(maxMs, baseMs * Math.pow(2, Math.max(0, attempt - 1)));
+    const delay = Math.min(
+      maxMs,
+      baseMs * Math.pow(2, Math.max(0, attempt - 1)),
+    );
     return new Date(Date.now() + delay);
   }
 
   private getMaxAttempts(): number {
-    const configured = this.configService.get<number>('GOOGLE_SYNC_MAX_ATTEMPTS', 5);
+    const configured = this.configService.get<number>(
+      'GOOGLE_SYNC_MAX_ATTEMPTS',
+      5,
+    );
     return Math.min(Math.max(configured, 1), 20);
   }
 
   private getScopes(): string[] {
-    const configured = this.configService.get<string>('GOOGLE_SCOPES', 'openid email profile https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar');
+    const configured = this.configService.get<string>(
+      'GOOGLE_SCOPES',
+      'openid email profile https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar',
+    );
     return configured.split(' ').filter(Boolean);
   }
 
   private getRedirectUri(redirectUri?: string): string {
-    const configured = this.configService.get<string>('GOOGLE_REDIRECT_URI', '').trim();
-    const fallbackFrontend = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3001');
+    const configured = this.configService
+      .get<string>('GOOGLE_REDIRECT_URI', '')
+      .trim();
+    const fallbackFrontend = this.configService.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3001',
+    );
 
     return (
       redirectUri?.trim() ||
@@ -1594,7 +1635,9 @@ export class GoogleIntegrationsService {
 
     if (!response.ok) {
       throw new BadRequestException(
-        parsed.error_description || parsed.error || 'Google token exchange failed',
+        parsed.error_description ||
+          parsed.error ||
+          'Google token exchange failed',
       );
     }
 
@@ -1628,7 +1671,9 @@ export class GoogleIntegrationsService {
 
     if (!response.ok || !parsed.access_token) {
       throw new BadRequestException(
-        parsed.error_description || parsed.error || 'Không thể refresh Google token',
+        parsed.error_description ||
+          parsed.error ||
+          'Không thể refresh Google token',
       );
     }
 
@@ -1641,7 +1686,9 @@ export class GoogleIntegrationsService {
     return parsed.access_token;
   }
 
-  private async ensureValidAccessToken(account: GoogleAccount): Promise<string> {
+  private async ensureValidAccessToken(
+    account: GoogleAccount,
+  ): Promise<string> {
     const expiresAt = account.tokenExpiresAt?.getTime() || 0;
     const stillValid = expiresAt > Date.now() + 60_000;
 
@@ -1652,7 +1699,9 @@ export class GoogleIntegrationsService {
     return this.refreshAccessToken(account);
   }
 
-  private async getActiveAccountOrThrow(userId: string): Promise<GoogleAccount> {
+  private async getActiveAccountOrThrow(
+    userId: string,
+  ): Promise<GoogleAccount> {
     const account = await this.googleAccountsRepository.findOne({
       where: { userId },
     });
@@ -1681,7 +1730,9 @@ export class GoogleIntegrationsService {
     if (first.status !== 401) {
       const parsed = (await first.json()) as unknown;
       if (!first.ok) {
-        throw new BadRequestException(this.extractErrorFromGoogleResponse(parsed));
+        throw new BadRequestException(
+          this.extractErrorFromGoogleResponse(parsed),
+        );
       }
       return parsed;
     }

@@ -15,6 +15,12 @@ export enum NotificationType {
   MENTION = 'mention',
   TASK_ASSIGNED = 'taskAssigned',
   DEADLINE_REMINDER = 'deadlineReminder',
+  TASK_BLOCKED = 'taskBlocked',
+  TASK_COMPLETED = 'taskCompleted',
+  TASK_OVERDUE = 'taskOverdue',
+  WORKSPACE_INVITATION = 'workspaceInvitation',
+  WORKSPACE_INVITATION_RESPONSE = 'workspaceInvitationResponse',
+  DIRECT_MESSAGE = 'directMessage',
 }
 
 @Entity('notifications')

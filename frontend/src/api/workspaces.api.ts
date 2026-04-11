@@ -3,6 +3,8 @@ import { unwrap, withApiError } from "./utils";
 import type {
   ApiEnvelope,
   Workspace,
+  WorkspaceInvitation,
+  WorkspaceInvitationAction,
   WorkspaceMember,
   WorkspaceRole,
 } from "../types/api";
@@ -63,10 +65,40 @@ export const workspacesApi = {
     );
   },
 
-  async invite(workspaceId: string, input: InviteMemberInput): Promise<WorkspaceMember> {
+  async invite(workspaceId: string, input: InviteMemberInput): Promise<WorkspaceInvitation> {
     return withApiError(
       http
-        .post<ApiEnvelope<WorkspaceMember>>(`/workspaces/${workspaceId}/invite`, input)
+        .post<ApiEnvelope<WorkspaceInvitation>>(`/workspaces/${workspaceId}/invite`, input)
+        .then((res) => unwrap(res.data)),
+    );
+  },
+
+  async listIncomingInvitations(): Promise<WorkspaceInvitation[]> {
+    return withApiError(
+      http
+        .get<ApiEnvelope<WorkspaceInvitation[]>>('/workspaces/invitations/incoming')
+        .then((res) => unwrap(res.data)),
+    );
+  },
+
+  async listWorkspaceInvitations(workspaceId: string): Promise<WorkspaceInvitation[]> {
+    return withApiError(
+      http
+        .get<ApiEnvelope<WorkspaceInvitation[]>>(`/workspaces/${workspaceId}/invitations`)
+        .then((res) => unwrap(res.data)),
+    );
+  },
+
+  async respondInvitation(
+    invitationId: string,
+    action: WorkspaceInvitationAction,
+  ): Promise<WorkspaceInvitation> {
+    return withApiError(
+      http
+        .patch<ApiEnvelope<WorkspaceInvitation>>(
+          `/workspaces/invitations/${invitationId}/respond`,
+          { action },
+        )
         .then((res) => unwrap(res.data)),
     );
   },

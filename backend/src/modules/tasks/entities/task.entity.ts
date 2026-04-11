@@ -62,37 +62,83 @@ export class Task {
   @Column({ type: 'varchar', length: 36, name: 'assignee_id', nullable: true })
   assigneeId!: string | null;
 
-  @Column({ type: 'varchar', length: 36, name: 'parent_task_id', nullable: true })
+  @Column({
+    type: 'varchar',
+    length: 36,
+    name: 'parent_task_id',
+    nullable: true,
+  })
   parentTaskId!: string | null;
 
-  @Column({ type: 'varchar', length: 36, name: 'related_page_id', nullable: true })
+  @Column({
+    type: 'varchar',
+    length: 36,
+    name: 'related_page_id',
+    nullable: true,
+  })
   relatedPageId!: string | null;
 
-  @Column({ type: 'varchar', length: 255, name: 'google_event_id', nullable: true })
+  @Column({
+    type: 'varchar',
+    length: 255,
+    name: 'google_event_id',
+    nullable: true,
+  })
   googleEventId!: string | null;
 
-  @Column({ type: 'varchar', length: 120, name: 'google_calendar_id', nullable: true })
+  @Column({
+    type: 'varchar',
+    length: 120,
+    name: 'google_calendar_id',
+    nullable: true,
+  })
   googleCalendarId!: string | null;
 
-  @Column({ type: 'varchar', length: 500, name: 'google_meet_url', nullable: true })
+  @Column({
+    type: 'varchar',
+    length: 500,
+    name: 'google_meet_url',
+    nullable: true,
+  })
   googleMeetUrl!: string | null;
 
-  @Column({ type: 'varchar', length: 255, name: 'google_event_etag', nullable: true })
+  @Column({
+    type: 'varchar',
+    length: 255,
+    name: 'google_event_etag',
+    nullable: true,
+  })
   googleEventEtag!: string | null;
 
-  @Column({ type: 'timestamp', name: 'google_event_updated_at', nullable: true })
+  @Column({
+    type: 'timestamp',
+    name: 'google_event_updated_at',
+    nullable: true,
+  })
   googleEventUpdatedAt!: Date | null;
 
-  @Column({ type: 'timestamp', name: 'google_task_last_synced_at', nullable: true })
+  @Column({
+    type: 'timestamp',
+    name: 'google_task_last_synced_at',
+    nullable: true,
+  })
   googleTaskLastSyncedAt!: Date | null;
 
   @Column({ type: 'timestamp', name: 'google_last_pulled_at', nullable: true })
   googleLastPulledAt!: Date | null;
 
-  @Column({ type: 'timestamp', name: 'google_sync_conflict_at', nullable: true })
+  @Column({
+    type: 'timestamp',
+    name: 'google_sync_conflict_at',
+    nullable: true,
+  })
   googleSyncConflictAt!: Date | null;
 
-  @Column({ type: 'text', name: 'google_sync_conflict_message', nullable: true })
+  @Column({
+    type: 'text',
+    name: 'google_sync_conflict_message',
+    nullable: true,
+  })
   googleSyncConflictMessage!: string | null;
 
   @Column({ type: 'varchar', length: 36, name: 'created_by' })

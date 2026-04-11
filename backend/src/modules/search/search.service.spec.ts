@@ -47,9 +47,9 @@ describe('SearchService', () => {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue([
-        { id: 'p1', title: 'Hello page', icon: null },
-      ]),
+      getMany: jest
+        .fn()
+        .mockResolvedValue([{ id: 'p1', title: 'Hello page', icon: null }]),
     };
 
     const contentQb = {

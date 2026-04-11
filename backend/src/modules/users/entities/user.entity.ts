@@ -31,6 +31,14 @@ export class User {
   @Column({ type: 'varchar', length: 500, nullable: true })
   refreshTokenHash: string | null;
 
+  @Exclude()
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  passwordResetTokenHash: string | null;
+
+  @Exclude()
+  @Column({ type: 'timestamp', nullable: true })
+  passwordResetExpiresAt: Date | null;
+
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
 

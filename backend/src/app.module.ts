@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { APP_GUARD } from '@nestjs/core';
 import { getDatabaseConfig } from './config/database.config';
 import { envValidationSchema } from './config/env.validation';
@@ -35,10 +36,12 @@ import { GoogleIntegrationsModule } from './modules/google-integrations/google-i
     }),
 
     // Rate limiting — 60 requests per minute per IP
-    ThrottlerModule.forRoot([{
-      ttl: 60000,
-      limit: 60,
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 60,
+      },
+    ]),
 
     // TypeORM — supports both PostgreSQL (Phase 1) and Oracle (Phase 2)
     TypeOrmModule.forRootAsync({
@@ -46,6 +49,9 @@ import { GoogleIntegrationsModule } from './modules/google-integrations/google-i
       useFactory: getDatabaseConfig,
       inject: [ConfigService],
     }),
+
+    // Scheduler for periodic jobs (notifications, housekeeping, etc.)
+    ScheduleModule.forRoot(),
 
     // Core modules
     HealthModule,

@@ -41,6 +41,39 @@ export class UsersService {
     await this.usersRepository.update(id, { refreshTokenHash });
   }
 
+  async updatePassword(id: string, hashedPassword: string): Promise<void> {
+    await this.usersRepository.update(id, {
+      password: hashedPassword,
+    });
+  }
+
+  async setPasswordResetToken(
+    id: string,
+    tokenHash: string,
+    expiresAt: Date,
+  ): Promise<void> {
+    await this.usersRepository.update(id, {
+      passwordResetTokenHash: tokenHash,
+      passwordResetExpiresAt: expiresAt,
+    });
+  }
+
+  async clearPasswordResetToken(id: string): Promise<void> {
+    await this.usersRepository.update(id, {
+      passwordResetTokenHash: null,
+      passwordResetExpiresAt: null,
+    });
+  }
+
+  async findByPasswordResetTokenHash(tokenHash: string): Promise<User | null> {
+    return this.usersRepository
+      .createQueryBuilder('user')
+      .where('user.passwordResetTokenHash = :tokenHash', { tokenHash })
+      .andWhere('user.passwordResetExpiresAt IS NOT NULL')
+      .andWhere('user.passwordResetExpiresAt > :now', { now: new Date() })
+      .getOne();
+  }
+
   async getRefreshTokenHash(id: string): Promise<string | null> {
     const user = await this.usersRepository.findOne({
       where: { id },

@@ -12,7 +12,6 @@ import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 import { ConfigService } from '@nestjs/config';
 import { BlocksService } from '../blocks/blocks.service';
-import { PagesService } from '../pages/pages.service';
 
 interface ConnectedUser {
   userId: string;
@@ -20,9 +19,26 @@ interface ConnectedUser {
   color: string;
 }
 
+interface CollaborationSocketData {
+  userId?: string;
+  userName?: string;
+  color?: string;
+}
+
+interface JwtSocketPayload {
+  sub: string;
+  name?: string;
+}
+
 const CURSOR_COLORS = [
-  '#F87171', '#60A5FA', '#34D399', '#FBBF24',
-  '#A78BFA', '#F472B6', '#FB923C', '#2DD4BF',
+  '#F87171',
+  '#60A5FA',
+  '#34D399',
+  '#FBBF24',
+  '#A78BFA',
+  '#F472B6',
+  '#FB923C',
+  '#2DD4BF',
 ];
 
 @WebSocketGateway({
@@ -47,16 +63,13 @@ export class CollaborationGateway
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly blocksService: BlocksService,
-    private readonly pagesService: PagesService,
   ) {}
 
   // ──── Connection lifecycle ────
 
-  async handleConnection(client: Socket) {
+  handleConnection(client: Socket) {
     try {
-      const token =
-        client.handshake.auth?.token ||
-        client.handshake.headers?.authorization?.replace('Bearer ', '');
+      const token = this.extractToken(client);
 
       if (!token) {
         this.logger.warn('WebSocket connection rejected: no token');
@@ -64,15 +77,24 @@ export class CollaborationGateway
         return;
       }
 
-      const payload = this.jwtService.verify(token, {
+      const payload = this.jwtService.verify<JwtSocketPayload>(token, {
         secret: this.configService.get<string>('JWT_SECRET'),
       });
 
-      client.data.userId = payload.sub;
-      client.data.userName = payload.name;
-      client.data.color = this.getUserColor(payload.sub);
+      if (!payload.sub) {
+        this.logger.warn('WebSocket connection rejected: token missing sub');
+        client.disconnect();
+        return;
+      }
 
-      this.logger.log(`Client connected: ${payload.name} (${client.id})`);
+      const socketData = this.getSocketData(client);
+      socketData.userId = payload.sub;
+      socketData.userName = payload.name || 'Unknown user';
+      socketData.color = this.getUserColor(payload.sub);
+
+      this.logger.log(
+        `Client connected: ${socketData.userName} (${client.id})`,
+      );
     } catch {
       this.logger.warn(`WebSocket connection rejected: invalid token`);
       client.disconnect();
@@ -80,18 +102,21 @@ export class CollaborationGateway
   }
 
   handleDisconnect(client: Socket) {
-    if (!client.data.userId) return;
+    const socketData = this.getSocketData(client);
+    if (!socketData.userId) {
+      return;
+    }
 
     // Notify all rooms this user was in
     client.rooms.forEach((room) => {
       if (room !== client.id) {
-        this.removeFromRoom(room, client.data.userId);
-        client.to(room).emit('user-left', { userId: client.data.userId });
+        this.removeFromRoom(room, socketData.userId as string);
+        client.to(room).emit('user-left', { userId: socketData.userId });
       }
     });
 
     this.logger.log(
-      `Client disconnected: ${client.data.userName} (${client.id})`,
+      `Client disconnected: ${socketData.userName} (${client.id})`,
     );
   }
 
@@ -102,13 +127,19 @@ export class CollaborationGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { pageId: string },
   ) {
+    const socketData = this.getSocketData(client);
+    if (!socketData.userId || !socketData.userName || !socketData.color) {
+      client.emit('error', { message: 'Unauthorized socket session' });
+      return;
+    }
+
     const room = `page:${data.pageId}`;
     await client.join(room);
 
     const user: ConnectedUser = {
-      userId: client.data.userId,
-      userName: client.data.userName,
-      color: client.data.color,
+      userId: socketData.userId,
+      userName: socketData.userName,
+      color: socketData.color,
     };
 
     this.addToRoom(room, user);
@@ -128,11 +159,16 @@ export class CollaborationGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { pageId: string },
   ) {
+    const socketData = this.getSocketData(client);
+    if (!socketData.userId) {
+      return;
+    }
+
     const room = `page:${data.pageId}`;
     await client.leave(room);
 
-    this.removeFromRoom(room, client.data.userId);
-    client.to(room).emit('user-left', { userId: client.data.userId });
+    this.removeFromRoom(room, socketData.userId);
+    client.to(room).emit('user-left', { userId: socketData.userId });
   }
 
   // ──── Block operations — save to DB + broadcast ────
@@ -144,20 +180,29 @@ export class CollaborationGateway
     data: { pageId: string; blockId: string; content: string; type?: string },
   ) {
     try {
+      const socketData = this.getSocketData(client);
+      if (!socketData.userId) {
+        client.emit('error', { message: 'Unauthorized socket session' });
+        return;
+      }
+
       await this.blocksService.update(
         data.blockId,
         { content: data.content, type: data.type },
-        client.data.userId,
+        socketData.userId,
       );
 
       client.to(`page:${data.pageId}`).emit('block-updated', {
         blockId: data.blockId,
         content: data.content,
         type: data.type,
-        userId: client.data.userId,
+        userId: socketData.userId,
       });
     } catch (error) {
-      client.emit('error', { message: 'Failed to update block', error: String(error) });
+      client.emit('error', {
+        message: 'Failed to update block',
+        error: String(error),
+      });
     }
   }
 
@@ -165,24 +210,38 @@ export class CollaborationGateway
   async handleBlockCreate(
     @ConnectedSocket() client: Socket,
     @MessageBody()
-    data: { pageId: string; type: string; content?: string; sortOrder?: number },
+    data: {
+      pageId: string;
+      type: string;
+      content?: string;
+      sortOrder?: number;
+    },
   ) {
     try {
+      const socketData = this.getSocketData(client);
+      if (!socketData.userId) {
+        client.emit('error', { message: 'Unauthorized socket session' });
+        return;
+      }
+
       const block = await this.blocksService.create(
         data.pageId,
         { type: data.type, content: data.content, sortOrder: data.sortOrder },
-        client.data.userId,
+        socketData.userId,
       );
 
       client.to(`page:${data.pageId}`).emit('block-created', {
         block,
-        userId: client.data.userId,
+        userId: socketData.userId,
       });
 
       // Confirm to sender with the created block (includes generated ID)
       client.emit('block-created-ack', { block });
     } catch (error) {
-      client.emit('error', { message: 'Failed to create block', error: String(error) });
+      client.emit('error', {
+        message: 'Failed to create block',
+        error: String(error),
+      });
     }
   }
 
@@ -192,14 +251,23 @@ export class CollaborationGateway
     @MessageBody() data: { pageId: string; blockId: string },
   ) {
     try {
-      await this.blocksService.remove(data.blockId, client.data.userId);
+      const socketData = this.getSocketData(client);
+      if (!socketData.userId) {
+        client.emit('error', { message: 'Unauthorized socket session' });
+        return;
+      }
+
+      await this.blocksService.remove(data.blockId, socketData.userId);
 
       client.to(`page:${data.pageId}`).emit('block-deleted', {
         blockId: data.blockId,
-        userId: client.data.userId,
+        userId: socketData.userId,
       });
     } catch (error) {
-      client.emit('error', { message: 'Failed to delete block', error: String(error) });
+      client.emit('error', {
+        message: 'Failed to delete block',
+        error: String(error),
+      });
     }
   }
 
@@ -209,18 +277,27 @@ export class CollaborationGateway
     @MessageBody() data: { pageId: string; blockIds: string[] },
   ) {
     try {
+      const socketData = this.getSocketData(client);
+      if (!socketData.userId) {
+        client.emit('error', { message: 'Unauthorized socket session' });
+        return;
+      }
+
       await this.blocksService.reorder(
         data.pageId,
         { blockIds: data.blockIds },
-        client.data.userId,
+        socketData.userId,
       );
 
       client.to(`page:${data.pageId}`).emit('block-reordered', {
         blockIds: data.blockIds,
-        userId: client.data.userId,
+        userId: socketData.userId,
       });
     } catch (error) {
-      client.emit('error', { message: 'Failed to reorder blocks', error: String(error) });
+      client.emit('error', {
+        message: 'Failed to reorder blocks',
+        error: String(error),
+      });
     }
   }
 
@@ -231,10 +308,15 @@ export class CollaborationGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { pageId: string; position: Record<string, unknown> },
   ) {
+    const socketData = this.getSocketData(client);
+    if (!socketData.userId || !socketData.userName || !socketData.color) {
+      return;
+    }
+
     client.to(`page:${data.pageId}`).emit('cursor-moved', {
-      userId: client.data.userId,
-      userName: client.data.userName,
-      color: client.data.color,
+      userId: socketData.userId,
+      userName: socketData.userName,
+      color: socketData.color,
       position: data.position,
     });
   }
@@ -265,6 +347,24 @@ export class CollaborationGateway
   }
 
   private getRoomUsers(room: string): ConnectedUser[] {
-    return Array.from(this.roomUsers.get(room)?.values() || []);
+    const users = this.roomUsers.get(room);
+    return users ? Array.from(users.values()) : [];
+  }
+
+  private getSocketData(client: Socket): CollaborationSocketData {
+    return client.data as CollaborationSocketData;
+  }
+
+  private extractToken(client: Socket): string | null {
+    const auth = client.handshake.auth as Record<string, unknown> | undefined;
+    const tokenFromAuth = typeof auth?.token === 'string' ? auth.token : null;
+
+    const authorizationHeader = client.handshake.headers.authorization;
+    const tokenFromHeader =
+      typeof authorizationHeader === 'string'
+        ? authorizationHeader.replace(/^Bearer\s+/i, '')
+        : null;
+
+    return tokenFromAuth || tokenFromHeader;
   }
 }
