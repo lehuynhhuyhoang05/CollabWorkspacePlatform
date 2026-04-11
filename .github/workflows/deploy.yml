@@ -48,6 +48,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     env:
       DEPLOY_HOST: ${{ secrets.PROD_SSH_HOST != '' && secrets.PROD_SSH_HOST || secrets.AWS_EC2_HOST != '' && secrets.AWS_EC2_HOST || secrets.ORACLE_VM_IP != '' && secrets.ORACLE_VM_IP || secrets.DOMAIN != '' && secrets.DOMAIN || 'api.huyhoang05.id.vn' }}
+      DEPLOY_PORT: ${{ secrets.PROD_SSH_PORT != '' && secrets.PROD_SSH_PORT || secrets.SSH_PORT != '' && secrets.SSH_PORT || '22' }}
       DEPLOY_USER: ${{ secrets.PROD_SSH_USER != '' && secrets.PROD_SSH_USER || secrets.AWS_EC2_USER != '' && secrets.AWS_EC2_USER || secrets.ORACLE_VM_USER != '' && secrets.ORACLE_VM_USER || secrets.DEPLOY_USER != '' && secrets.DEPLOY_USER || 'ubuntu' }}
       DEPLOY_KEY: ${{ secrets.PROD_SSH_PRIVATE_KEY != '' && secrets.PROD_SSH_PRIVATE_KEY || secrets.AWS_EC2_SSH_PRIVATE_KEY != '' && secrets.AWS_EC2_SSH_PRIVATE_KEY || secrets.ORACLE_SSH_PRIVATE_KEY != '' && secrets.ORACLE_SSH_PRIVATE_KEY || secrets.DEPLOY_SSH_PRIVATE_KEY }}
       DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH != '' && secrets.PROD_DEPLOY_PATH || secrets.AWS_DEPLOY_PATH != '' && secrets.AWS_DEPLOY_PATH || secrets.DEPLOY_PATH != '' && secrets.DEPLOY_PATH || '/home/ubuntu/CollabWorkspacePlatform' }}
@@ -93,6 +94,7 @@ jobs:
         run: |
           set -euo pipefail
           [ -n "${DEPLOY_HOST}" ] || { echo "::error::Missing deploy host secret (prefer PROD_SSH_HOST)"; exit 1; }
+          [ -n "${DEPLOY_PORT}" ] || { echo "::error::Missing deploy SSH port secret (prefer PROD_SSH_PORT)"; exit 1; }
           [ -n "${DEPLOY_USER}" ] || { echo "::error::Missing deploy user secret (prefer PROD_SSH_USER)"; exit 1; }
           [ -n "${DEPLOY_KEY}" ] || { echo "::error::Missing deploy private key secret (prefer PROD_SSH_PRIVATE_KEY)"; exit 1; }
           [ -n "${DEPLOY_PATH}" ] || { echo "::error::Missing deploy path secret (prefer PROD_DEPLOY_PATH)"; exit 1; }
@@ -111,20 +113,56 @@ jobs:
             echo "::warning::Set PROD_GOOGLE_CLIENT_ID/PROD_GOOGLE_CLIENT_SECRET/PROD_GOOGLE_REDIRECT_URI/PROD_GOOGLE_SCOPES to keep production deterministic."
           fi
 
+      - name: Preflight network reachability
+        run: |
+          set -euo pipefail
+          echo "Checking SSH reachability to ${DEPLOY_HOST}:${DEPLOY_PORT}"
+          if ! timeout 15 bash -lc "cat < /dev/null > /dev/tcp/${DEPLOY_HOST}/${DEPLOY_PORT}"; then
+            echo "::error::Cannot reach ${DEPLOY_HOST}:${DEPLOY_PORT} from GitHub runner. Check VM uptime, security group/firewall inbound rule, and SSH port secret."
+            exit 1
+          fi
+
+      - name: Prepare SSH for deploy copy
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          printf '%s\n' "${DEPLOY_KEY}" > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
+
       - name: Copy project to VM
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ env.DEPLOY_HOST }}
-          username: ${{ env.DEPLOY_USER }}
-          key: ${{ env.DEPLOY_KEY }}
-          source: 'backend/**,frontend/dist/**,frontend/nginx.frontend.conf'
-          target: '${{ env.DEPLOY_PATH }}'
-          strip_components: 0
+        run: |
+          set -euo pipefail
+
+          [ -d backend ] || { echo '::error::backend directory not found in workspace'; exit 1; }
+          [ -f frontend/nginx.frontend.conf ] || { echo '::error::frontend/nginx.frontend.conf not found'; exit 1; }
+          [ -f frontend/dist/index.html ] || { echo '::error::frontend/dist/index.html not found after frontend build'; exit 1; }
+
+          tar -czf /tmp/deploy-bundle.tgz backend frontend/dist frontend/nginx.frontend.conf
+
+          scp \
+            -i "$HOME/.ssh/deploy_key" \
+            -P "${DEPLOY_PORT}" \
+            -o ConnectTimeout=15 \
+            -o StrictHostKeyChecking=accept-new \
+            /tmp/deploy-bundle.tgz \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/deploy-bundle.tgz"
+
+          ssh \
+            -i "$HOME/.ssh/deploy_key" \
+            -p "${DEPLOY_PORT}" \
+            -o ConnectTimeout=15 \
+            -o StrictHostKeyChecking=accept-new \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "mkdir -p '${DEPLOY_PATH}' && tar -xzf /tmp/deploy-bundle.tgz -C '${DEPLOY_PATH}' && rm -f /tmp/deploy-bundle.tgz"
+
+          rm -f /tmp/deploy-bundle.tgz
 
       - name: Deploy with Docker Compose
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ env.DEPLOY_HOST }}
+          port: ${{ env.DEPLOY_PORT }}
           username: ${{ env.DEPLOY_USER }}
           key: ${{ env.DEPLOY_KEY }}
           script: |
@@ -208,11 +246,26 @@ jobs:
               sh scripts/renew-ssl.sh || true
             fi
 
+            # Remove legacy poll deploy cron after a successful Actions deploy.
+            current_cron="$(crontab -l 2>/dev/null || true)"
+            if printf '%s\n' "$current_cron" | grep -q 'poll-deploy.sh'; then
+              updated_cron="$(printf '%s\n' "$current_cron" | grep -v 'poll-deploy.sh' || true)"
+              if [ -n "$(printf '%s' "$updated_cron" | tr -d '[:space:]')" ]; then
+                printf '%s\n' "$updated_cron" | crontab -
+              else
+                crontab -r || true
+              fi
+              echo 'Removed legacy poll-deploy.sh cron entry.'
+            else
+              echo 'No legacy poll-deploy.sh cron entry found.'
+            fi
+
             docker image prune -f
 
 # Required repository secrets:
 # Canonical production secrets (recommended):
 # PROD_SSH_HOST
+# PROD_SSH_PORT (optional, defaults to 22)
 # PROD_SSH_USER
 # PROD_SSH_PRIVATE_KEY
 # PROD_DEPLOY_PATH
@@ -228,7 +281,7 @@ jobs:
 #
 # Legacy fallback secrets are still supported during migration:
 # AWS_EC2_HOST, AWS_EC2_USER, AWS_EC2_SSH_PRIVATE_KEY, AWS_DEPLOY_PATH
-# ORACLE_VM_IP, ORACLE_VM_USER, ORACLE_SSH_PRIVATE_KEY, DEPLOY_PATH, DEPLOY_USER
+# ORACLE_VM_IP, ORACLE_VM_USER, ORACLE_SSH_PRIVATE_KEY, DEPLOY_PATH, DEPLOY_USER, SSH_PORT
 # DOMAIN, CERTBOT_EMAIL
 # GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, GOOGLE_SCOPES
 # FRONTEND_API_BASE_URL, FRONTEND_URL

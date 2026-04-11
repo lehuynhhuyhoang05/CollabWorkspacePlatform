@@ -52,6 +52,7 @@ Workflow: .github/workflows/deploy.yml
 
 Canonical production secrets (recommended):
 - PROD_SSH_HOST
+- PROD_SSH_PORT (optional, defaults to 22)
 - PROD_SSH_USER
 - PROD_SSH_PRIVATE_KEY
 - PROD_DEPLOY_PATH
@@ -68,7 +69,7 @@ Optional TLS secrets:
 
 Legacy fallback secrets currently still supported by workflow:
 - AWS_EC2_HOST, AWS_EC2_USER, AWS_EC2_SSH_PRIVATE_KEY, AWS_DEPLOY_PATH
-- ORACLE_VM_IP, ORACLE_VM_USER, ORACLE_SSH_PRIVATE_KEY, DEPLOY_PATH, DEPLOY_USER
+- ORACLE_VM_IP, ORACLE_VM_USER, ORACLE_SSH_PRIVATE_KEY, DEPLOY_PATH, DEPLOY_USER, SSH_PORT
 - DOMAIN, CERTBOT_EMAIL
 - GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, GOOGLE_SCOPES
 - FRONTEND_API_BASE_URL, FRONTEND_URL
@@ -204,6 +205,12 @@ docker compose -f docker-compose.prod.yml logs nginx --tail=200
 ### 8.5 Auth refresh 429
 - Current limit is 8 requests per 60s.
 - Check frontend refresh loop behavior.
+
+### 8.6 Deploy step timeout to SSH
+- Symptom: `dial tcp <host>:<port>: i/o timeout` in `Copy project to VM`.
+- Verify `PROD_SSH_HOST` and `PROD_SSH_PORT` in repository secrets.
+- Verify VM is running and reachable from public internet on SSH port.
+- Verify Security Group/firewall inbound allows SSH on the configured port.
 
 ## 9. Cost control (important for $100 credit)
 
