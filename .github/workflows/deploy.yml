@@ -1,4 +1,4 @@
-name: Deploy Backend
+name: Deploy Fullstack
 
 on:
   push:
@@ -27,7 +27,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
@@ -43,10 +43,10 @@ jobs:
     needs: build
     if: github.ref == 'refs/heads/main'
     env:
-      DEPLOY_HOST: ${{ secrets.AWS_EC2_HOST != '' && secrets.AWS_EC2_HOST || secrets.ORACLE_VM_IP }}
-      DEPLOY_USER: ${{ secrets.AWS_EC2_USER != '' && secrets.AWS_EC2_USER || secrets.ORACLE_VM_USER }}
-      DEPLOY_KEY: ${{ secrets.AWS_EC2_SSH_PRIVATE_KEY != '' && secrets.AWS_EC2_SSH_PRIVATE_KEY || secrets.ORACLE_SSH_PRIVATE_KEY }}
-      DEPLOY_PATH: ${{ secrets.AWS_DEPLOY_PATH != '' && secrets.AWS_DEPLOY_PATH || secrets.DEPLOY_PATH }}
+      DEPLOY_HOST: ${{ secrets.AWS_EC2_HOST != '' && secrets.AWS_EC2_HOST || secrets.ORACLE_VM_IP != '' && secrets.ORACLE_VM_IP || secrets.DOMAIN != '' && secrets.DOMAIN || 'api.huyhoang05.id.vn' }}
+      DEPLOY_USER: ${{ secrets.AWS_EC2_USER != '' && secrets.AWS_EC2_USER || secrets.ORACLE_VM_USER != '' && secrets.ORACLE_VM_USER || secrets.DEPLOY_USER != '' && secrets.DEPLOY_USER || 'ubuntu' }}
+      DEPLOY_KEY: ${{ secrets.AWS_EC2_SSH_PRIVATE_KEY != '' && secrets.AWS_EC2_SSH_PRIVATE_KEY || secrets.ORACLE_SSH_PRIVATE_KEY != '' && secrets.ORACLE_SSH_PRIVATE_KEY || secrets.DEPLOY_SSH_PRIVATE_KEY }}
+      DEPLOY_PATH: ${{ secrets.AWS_DEPLOY_PATH != '' && secrets.AWS_DEPLOY_PATH || secrets.DEPLOY_PATH != '' && secrets.DEPLOY_PATH || '/home/ubuntu/CollabWorkspacePlatform' }}
       DOMAIN: ${{ secrets.DOMAIN }}
       CERTBOT_EMAIL: ${{ secrets.CERTBOT_EMAIL }}
       GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
@@ -62,7 +62,7 @@ jobs:
       - name: Setup Node for frontend build
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -193,8 +193,12 @@ jobs:
             docker image prune -f
 
 # Required repository secrets:
-# AWS_EC2_HOST, AWS_EC2_USER, AWS_EC2_SSH_PRIVATE_KEY, AWS_DEPLOY_PATH
-# (Backward compatible fallback: ORACLE_VM_IP, ORACLE_VM_USER, ORACLE_SSH_PRIVATE_KEY, DEPLOY_PATH)
+# DEPLOY SSH key is required via one of:
+# AWS_EC2_SSH_PRIVATE_KEY, ORACLE_SSH_PRIVATE_KEY, DEPLOY_SSH_PRIVATE_KEY
+# Optional host/user/path fallbacks:
+# AWS_EC2_HOST, AWS_EC2_USER, AWS_DEPLOY_PATH
+# ORACLE_VM_IP, ORACLE_VM_USER, DEPLOY_PATH
+# DEPLOY_USER
 # Optional env sync for Google integration and frontend build:
 # GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, GOOGLE_SCOPES
 # FRONTEND_API_BASE_URL, FRONTEND_URL
