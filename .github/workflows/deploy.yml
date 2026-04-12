@@ -212,6 +212,9 @@ jobs:
 
             docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
 
+            # Refresh nginx upstream resolution after backend container recreation.
+            docker compose -f docker-compose.prod.yml restart nginx
+
             # Run DB migrations using compiled datasource in production image.
             docker compose -f docker-compose.prod.yml exec -T backend npx typeorm -d dist/config/typeorm-cli.config.js migration:run
 
